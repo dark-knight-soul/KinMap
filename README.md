@@ -8,6 +8,10 @@
 
 ## Как начать
 
+**Попробовать сразу в браузере:** [dark-knight-soul.github.io/KinMap](https://dark-knight-soul.github.io/KinMap/) · [открыть пример](https://dark-knight-soul.github.io/KinMap/#demo). Данные и там хранятся только у вас — сайт просто отдаёт тот же файл.
+
+Чтобы работать без интернета:
+
 1. Скачайте **`KinMap.html`** со страницы [Releases](../../releases/latest).
 2. Откройте его двойным кликом — в Chrome, Edge, Firefox или Safari.
 3. Нажмите «Создать новое древо», «Открыть файл древа» (подходит и GEDCOM из MyHeritage, Geni, Gramps) или «Посмотреть пример».
@@ -62,6 +66,7 @@ npm install      # зависимости + git-хук проверки личн
 npm run dev      # разработка с автообновлением
 npm test         # тесты (~270)
 npm run build    # сборка в dist/KinMap.html
+npm run pages    # сборка и публикация онлайн-версии (ветка gh-pages)
 ```
 
 Как помочь проекту — в [CONTRIBUTING.md](CONTRIBUTING.md). Главное правило: **никаких настоящих семейных данных в репозитории** — только выдуманные примеры.
@@ -90,7 +95,7 @@ npm run build    # сборка в dist/KinMap.html
 
 KinMap is an open-source family tree app that runs entirely in your browser from **one HTML file** — no installation, no account, no server, works offline.
 
-**Get started:** download `KinMap.html` from [Releases](../../releases/latest), double-click it, then create a tree, open a `.kinmap` or GEDCOM file, or press “Try an example”.
+**Try it online:** [dark-knight-soul.github.io/KinMap](https://dark-knight-soul.github.io/KinMap/) ([example](https://dark-knight-soul.github.io/KinMap/#demo&lang=en)). **Offline:** download `KinMap.html` from [Releases](../../releases/latest), double-click it, then create a tree, open a `.kinmap` or GEDCOM file, or press “Try an example”.
 
 **Features:** family / ancestors / descendants / fan charts with zoom and search; relationship finder (in Russian it knows the precise in-law terms; English terms include “first cousin once removed”); photos (compressed, GPS removed) with avatar cropping; biographies and approximate dates; data consistency checks; tiled A4/A3 poster printing with glue strips, alignment marks and an assembly map; GEDCOM 5.5.1 / 7.0 import & export (UTF-8, Windows-1251, ANSEL; unknown fields preserved; living people hidden on export); family calendar with .ics export; password-protected files (AES-256); autosave, auto-backups, undo; Russian and English UI; light and dark themes.
 

@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "check-private": "node scripts/check-private.mjs",
+    "pages": "npm run build && node scripts/publish-pages.mjs",
     "prepare": "git config core.hooksPath .githooks || exit 0"
   },
   "dependencies": {
