@@ -16,14 +16,43 @@ export interface ChildLink {
   relation: ChildRelation;
 }
 
+// Индекс «человек → его семьи». Строится один раз на каждую версию древа
+// (древо неизменяемое, поэтому кэш по самому объекту всегда верен).
+// Без индекса каждый вопрос перебирает все семьи — на 5000 людях схема тормозила бы.
+interface TreeIndex {
+  unions: Map<PersonId, Family[]>;
+  parentFamilies: Map<PersonId, Family[]>;
+}
+
+const indexCache = new WeakMap<TreeData, TreeIndex>();
+const EMPTY: Family[] = [];
+
+function indexOf(tree: TreeData): TreeIndex {
+  let idx = indexCache.get(tree);
+  if (!idx) {
+    idx = { unions: new Map(), parentFamilies: new Map() };
+    const push = (map: Map<PersonId, Family[]>, id: PersonId, f: Family) => {
+      const list = map.get(id);
+      if (list) list.push(f);
+      else map.set(id, [f]);
+    };
+    for (const f of Object.values(tree.families)) {
+      for (const p of f.partners) push(idx.unions, p, f);
+      for (const c of f.children) push(idx.parentFamilies, c.id, f);
+    }
+    indexCache.set(tree, idx);
+  }
+  return idx;
+}
+
 /** Семьи, где человек — ребёнок */
 export function parentFamiliesOf(tree: TreeData, id: PersonId): Family[] {
-  return Object.values(tree.families).filter((f) => f.children.some((c) => c.id === id));
+  return indexOf(tree).parentFamilies.get(id) ?? EMPTY;
 }
 
 /** Семьи (союзы), где человек — партнёр */
 export function unionsOf(tree: TreeData, id: PersonId): Family[] {
-  return Object.values(tree.families).filter((f) => f.partners.includes(id));
+  return indexOf(tree).unions.get(id) ?? EMPTY;
 }
 
 export function parentsOf(tree: TreeData, id: PersonId): ParentLink[] {

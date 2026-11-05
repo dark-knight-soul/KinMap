@@ -22,6 +22,7 @@ export const en: EnDictionary = {
     text: 'Add relatives, photos and stories. Everything is kept in a file on your device — no sign-up, no servers, no internet needed.',
     create: 'Create a new tree',
     open: 'Open a tree file',
+    demo: 'Try an example',
     dropHint: 'or drop a .kinmap file here',
     recent: 'Recent trees in this browser',
     continue: 'Continue',
@@ -236,6 +237,38 @@ export const en: EnDictionary = {
   },
   load: {
     warnings: 'The file was opened, but some damaged data had to be fixed. Please check the tree.',
+  },
+  demo: {
+    name: 'Example: the Demidov family (fictional)',
+  },
+  view: {
+    label: 'View',
+    tree: 'Tree',
+    list: 'List',
+  },
+  chart: {
+    kind: 'Chart type',
+    family: 'Family',
+    ancestors: 'Ancestors',
+    descendants: 'Descendants',
+    fan: 'Fan',
+    up: 'Generations up',
+    down: 'down',
+  },
+  zoom: {
+    in: 'Zoom in (+)',
+    out: 'Zoom out (−)',
+    fit: 'Show all (0)',
+  },
+  tree: {
+    canvasLabel: 'Family tree chart: drag to move, wheel to zoom',
+    searchPlaceholder: 'Find a person…',
+    hint: 'Click — person card · double-click — center the chart on them',
+    duplicateHint: 'This person is also shown elsewhere on the chart',
+    moreAbove: 'More ancestors — show',
+    moreBelow: 'More descendants — show',
+    back: '← Back to tree',
+    center: 'Center chart',
   },
   errors: {
     op: {

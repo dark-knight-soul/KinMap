@@ -590,3 +590,158 @@ textarea {
   .tree-name { flex: 1 1 140px; }
   .banner { padding: 10px 16px; }
 }
+
+/* ───────────── Этап 3: схема древа ───────────── */
+:root {
+  --line: #9aa39c;
+  --card-focus: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  --canvas-bg: var(--bg);
+}
+
+.view-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.tree-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; flex: 1; min-width: 0; }
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  flex: none;
+}
+.segmented button {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 5px 12px;
+  border: none;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.segmented button:last-child { border-right: none; }
+.segmented button:hover { background: var(--hover); }
+.segmented button.active { background: var(--accent); color: var(--accent-text); }
+
+.tree-search { position: relative; margin-left: auto; width: 220px; max-width: 100%; }
+.search-results {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  width: 300px;
+  max-width: calc(100vw - 32px);
+  max-height: 360px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+}
+
+.workspace.tree-mode { grid-template-columns: 1fr; }
+.workspace.tree-mode.has-selection { grid-template-columns: 1fr minmax(340px, 420px); }
+.workspace.tree-mode .editor { border-left: 1px solid var(--border); background: var(--bg); }
+.workspace.tree-mode .back-btn { display: inline-block; }
+.workspace-empty { flex: 1; display: grid; place-items: center; }
+
+.chart-area { position: relative; min-width: 0; min-height: 0; display: flex; }
+.chart-hint {
+  position: absolute;
+  left: 12px;
+  bottom: 8px;
+  margin: 0;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.canvas {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle, color-mix(in srgb, var(--border) 70%, transparent) 1px, transparent 1px) 0 0 / 24px 24px,
+    var(--canvas-bg);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.canvas { min-width: 0; min-height: 0; }
+.canvas:active { cursor: grabbing; }
+.canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* SVG не должен распирать холст: иначе при открытии карточки сбоку холст не сужается */
+.canvas-svg { display: block; position: absolute; inset: 0; }
+
+.zoom-controls {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.zoom-level { font-size: 0.8rem; color: var(--muted); min-width: 42px; text-align: center; }
+
+/* Линии и карточки (SVG) */
+.link { fill: none; stroke: var(--line); stroke-width: 1.6; }
+.link.dashed { stroke-dasharray: 6 5; }
+
+.card { cursor: pointer; }
+.card-bg { fill: var(--surface); stroke: var(--border); stroke-width: 1.2; }
+.card:hover .card-bg { stroke: var(--accent); }
+.card.focus .card-bg { fill: var(--card-focus); stroke: var(--accent); stroke-width: 1.6; }
+.card.selected .card-bg { stroke: var(--accent); stroke-width: 3; }
+.card.duplicate { opacity: 0.75; }
+.card.duplicate .card-bg { stroke-dasharray: 5 4; }
+.card-stripe { fill: var(--sex-u); }
+.card-M .card-stripe { fill: var(--sex-m); }
+.card-F .card-stripe { fill: var(--sex-f); }
+.card text { fill: var(--text); font-family: inherit; pointer-events: none; }
+.card-name { font-size: 14px; font-weight: 600; }
+.card-surname { font-size: 13px; }
+.card-years { font-size: 12px; fill: var(--muted) !important; }
+.more { cursor: pointer; }
+.more circle { fill: var(--accent); }
+.more text { fill: var(--accent-text) !important; font-size: 9px; }
+
+/* Веер */
+.fan-seg, .fan-root { cursor: pointer; }
+.fan-bg { fill: var(--surface); stroke: var(--border); stroke-width: 1.2; }
+.fan-seg.card-M .fan-bg, .fan-root.card-M .fan-bg { fill: color-mix(in srgb, var(--sex-m) 14%, var(--surface)); }
+.fan-seg.card-F .fan-bg, .fan-root.card-F .fan-bg { fill: color-mix(in srgb, var(--sex-f) 14%, var(--surface)); }
+.fan-seg:hover .fan-bg, .fan-root:hover .fan-bg { stroke: var(--accent); }
+.fan-seg.selected .fan-bg, .fan-root.selected .fan-bg { stroke: var(--accent); stroke-width: 3; }
+.fan-seg.duplicate { opacity: 0.7; }
+.fan-name { font-size: 13px; font-weight: 600; fill: var(--text); pointer-events: none; }
+.fan-years { font-size: 11px; fill: var(--muted); pointer-events: none; }
+
+@media (max-width: 760px) {
+  .workspace.tree-mode.has-selection { grid-template-columns: 1fr; }
+  .workspace.tree-mode.has-selection .chart-area { display: none; }
+  .workspace.tree-mode .editor { border-left: none; }
+  .tree-search { margin-left: 0; width: 100%; }
+  .tree-toolbar { flex-basis: 100%; }
+  .tree-toolbar .segmented { max-width: 100%; overflow-x: auto; }
+  .segmented button { padding: 5px 9px; }
+  .chart-hint { display: none; }
+  .view-bar { padding: 8px 12px; }
+}

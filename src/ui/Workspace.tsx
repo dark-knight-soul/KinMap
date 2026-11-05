@@ -15,12 +15,15 @@ import {
   useApp,
   type Session,
 } from '../state/store';
+import { setView, useView } from '../state/view';
 import { ConfirmDialog } from './Modal';
 import { PasswordDialog } from './PasswordDialog';
-import { PeopleList } from './PeopleList';
+import { PeopleList, addEmptyPerson } from './PeopleList';
 import { PersonEditor } from './PersonEditor';
 import { SnapshotsDialog } from './SnapshotsDialog';
 import { TopBar } from './TopBar';
+import { TreeChart } from './tree/TreeChart';
+import { TreeToolbar } from './tree/TreeToolbar';
 
 /** Через сколько минут без сохранения в файл показывать напоминание */
 const REMIND_AFTER_MIN = 15;
@@ -32,6 +35,8 @@ export function Workspace() {
   const session = useApp((s) => s.session)!;
   const storageBroken = useApp((s) => s.storageBroken);
   const tree = session.history.present;
+  const view = useView();
+  const hasPeople = Object.keys(tree.people).length > 0;
   const [dialog, setDialog] = useState<DialogName>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const now = useNow(30_000);
@@ -170,10 +175,48 @@ export function Workspace() {
         </div>
       )}
 
-      <div className={session.selectedId ? 'workspace has-selection' : 'workspace'}>
-        <PeopleList />
-        <PersonEditor />
+      <div className="view-bar">
+        <div className="segmented" role="tablist" aria-label={t('view.label')}>
+          {(['tree', 'list'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              role="tab"
+              aria-selected={view.mode === m}
+              className={view.mode === m ? 'active' : ''}
+              onClick={() => setView({ mode: m })}
+            >
+              {t(`view.${m}`)}
+            </button>
+          ))}
+        </div>
+        {view.mode === 'tree' && hasPeople && <TreeToolbar />}
       </div>
+
+      {view.mode === 'list' ? (
+        <div className={session.selectedId ? 'workspace has-selection' : 'workspace'}>
+          <PeopleList />
+          <PersonEditor />
+        </div>
+      ) : !hasPeople ? (
+        <div className="workspace-empty">
+          <div className="empty">
+            <p>{t('people.empty')}</p>
+            <p className="muted small">{t('people.emptyHint')}</p>
+            <button type="button" className="btn btn-primary" onClick={() => addEmptyPerson()}>
+              {t('people.addFirst')}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className={session.selectedId ? 'workspace tree-mode has-selection' : 'workspace tree-mode'}>
+          <div className="chart-area">
+            <TreeChart />
+            <p className="chart-hint muted small">{t('tree.hint')}</p>
+          </div>
+          {session.selectedId && <PersonEditor />}
+        </div>
+      )}
 
       {dialog === 'password' && <PasswordDialog onClose={() => setDialog(null)} />}
       {dialog === 'snapshots' && <SnapshotsDialog onClose={() => setDialog(null)} />}

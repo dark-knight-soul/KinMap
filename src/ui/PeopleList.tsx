@@ -83,7 +83,7 @@ export function PeopleList() {
 }
 
 /** Добавить пустого человека, выбрать его и поставить курсор в поле «Имя» */
-function addEmptyPerson(): void {
+export function addEmptyPerson(): void {
   let id: PersonId | undefined;
   apply((tree: TreeData) => {
     const r = addPerson(tree);

@@ -36,7 +36,10 @@ export interface Session {
   lastFileSaveAt?: string;
   /** Когда появились несохранённые в файл изменения (для напоминания) */
   unsavedSince?: number;
+  /** Выбранный человек (открыта его карточка) */
   selectedId?: string;
+  /** Вокруг кого строится схема */
+  focusId?: string;
 }
 
 export interface Notice {
@@ -125,7 +128,9 @@ export async function openSession(p: OpenParams): Promise<void> {
       savingToFile: false,
       lastFileSaveAt: p.lastFileSaveAt,
       unsavedSince: p.syncedWithFile ? undefined : Date.now(),
-      selectedId: p.tree.rootPersonId,
+      // Карточку сразу не открываем — сначала человек видит древо целиком
+      selectedId: undefined,
+      focusId: p.tree.rootPersonId,
     },
   });
   lastSnapshotAt = 0;
@@ -165,8 +170,16 @@ export function apply(change: (tree: TreeData) => TreeData, coalesceKey?: string
     history: pushHistory(s.history, next, coalesceKey),
     revision: s.revision + 1,
     unsavedSince: s.unsavedSince ?? Date.now(),
+    ...validIds(s, next),
   });
   return true;
+}
+
+/** Если выбранный человек или центр схемы удалён — переключаемся на главного человека */
+function validIds(s: Session, tree: TreeData): Pick<Session, 'selectedId' | 'focusId'> {
+  const ok = (id?: string) => (id && tree.people[id] ? id : undefined);
+  const fallback = ok(tree.rootPersonId) ?? Object.keys(tree.people)[0];
+  return { selectedId: ok(s.selectedId) ?? (s.selectedId ? fallback : undefined), focusId: ok(s.focusId) ?? fallback };
 }
 
 function moveHistory(move: (h: History<TreeData>) => History<TreeData>): void {
@@ -175,12 +188,11 @@ function moveHistory(move: (h: History<TreeData>) => History<TreeData>): void {
   const h = move(s.history);
   if (h === s.history) return;
   const present = { ...h.present, updatedAt: new Date().toISOString() };
-  const selectedId = s.selectedId && present.people[s.selectedId] ? s.selectedId : present.rootPersonId;
   setSession({
     history: { ...h, present },
     revision: s.revision + 1,
     unsavedSince: s.unsavedSince ?? Date.now(),
-    selectedId,
+    ...validIds(s, present),
   });
 }
 
@@ -189,6 +201,11 @@ export const redo = () => moveHistory(redoHistory);
 
 export function select(id: string | undefined): void {
   setSession({ selectedId: id });
+}
+
+/** Сделать человека центром схемы (и выбрать его) */
+export function setFocus(id: string): void {
+  if (state.session?.history.present.people[id]) setSession({ focusId: id, selectedId: id });
 }
 
 // ─── Пароль ─────────────────────────────────────────────────────────────────

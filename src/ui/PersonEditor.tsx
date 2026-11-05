@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { removePerson, setRootPerson, updatePerson } from '../model/ops';
 import { isLiving } from '../model/queries';
 import type { LifeEvent, Person, PersonNames, Sex } from '../model/types';
-import { apply, select, useApp } from '../state/store';
+import { apply, select, setFocus, useApp } from '../state/store';
+import { setView, useView } from '../state/view';
 import { DateField } from './DateField';
 import { lifespan, useNameOf } from './format';
 import { ConfirmDialog } from './Modal';
@@ -15,6 +16,8 @@ export function PersonEditor() {
   const { t } = useTranslation();
   const tree = useApp((s) => s.session!.history.present);
   const selectedId = useApp((s) => s.session!.selectedId);
+  const focusId = useApp((s) => s.session!.focusId);
+  const view = useView();
   const nameOf = useNameOf();
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -50,7 +53,7 @@ export function PersonEditor() {
   return (
     <section className="editor" key={id}>
       <button type="button" className="btn btn-ghost back-btn" onClick={() => select(undefined)}>
-        {t('people.back')}
+        {view.mode === 'tree' ? t('tree.back') : t('people.back')}
       </button>
 
       <div className="editor-head">
@@ -59,6 +62,18 @@ export function PersonEditor() {
           <span className="muted">{lifespan(person)}</span>
         </div>
         <div className="editor-head-actions">
+          {(focusId !== id || view.mode !== 'tree') && (
+            <button
+              type="button"
+              className="btn btn-small"
+              onClick={() => {
+                setFocus(id);
+                setView({ mode: 'tree' });
+              }}
+            >
+              ◎ {t('tree.center')}
+            </button>
+          )}
           {isRoot ? (
             <span className="muted small">★ {t('person.isRoot')}</span>
           ) : (

@@ -1,6 +1,7 @@
 import { useEffect, useState, type DragEvent, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { readFile } from '../file/io';
+import { createDemoTree } from '../model/demo';
 import { createTree } from '../model/ops';
 import { openSession } from '../state/store';
 import { deleteTreeFromBrowser, listWorkingCopies, type WorkingCopy } from '../storage/local';
@@ -49,6 +50,13 @@ export function StartScreen() {
           </button>
           <button type="button" className="btn" onClick={() => void flow.pickAndOpen()} disabled={flow.busy}>
             {t('welcome.open')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => void openSession({ tree: createDemoTree(t('demo.name')), key: null, syncedWithFile: false })}
+          >
+            {t('welcome.demo')}
           </button>
         </div>
         <p className="hint">{t('welcome.dropHint')}</p>
