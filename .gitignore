@@ -1,0 +1,28 @@
+# Зависимости и сборка
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+
+# Логи и системный мусор
+*.log
+.DS_Store
+Thumbs.db
+
+# Редакторы
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Локальные настройки Claude Code
+.claude/settings.local.json
+
+# ── Личные данные: настоящие древа и фото в репозиторий не попадают ──
+# Выдуманные примеры кладём только в examples/ и test-data/
+*.kinmap
+*.ged
+*.gedcom
+*.GED
+!examples/**
+!test-data/**
+private/
