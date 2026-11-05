@@ -17,6 +17,7 @@ import {
 } from '../state/store';
 import { setView, useView } from '../state/view';
 import { ExportGedcomDialog, ImportReportDialog } from './GedcomDialogs';
+import { PrintDialog } from './print/PrintDialog';
 import { IssuesButton, IssuesDialog } from './IssuesView';
 import { KinshipDialog } from './KinshipDialog';
 import { ConfirmDialog } from './Modal';
@@ -31,7 +32,7 @@ import { TreeToolbar } from './tree/TreeToolbar';
 /** Через сколько минут без сохранения в файл показывать напоминание */
 const REMIND_AFTER_MIN = 15;
 
-type DialogName = 'password' | 'snapshots' | 'close' | 'issues' | 'kinship' | 'gedcom' | null;
+type DialogName = 'password' | 'snapshots' | 'close' | 'issues' | 'kinship' | 'gedcom' | 'print' | null;
 
 export function Workspace() {
   const { t } = useTranslation();
@@ -53,6 +54,11 @@ export function Workspace() {
       if (key === 's') {
         e.preventDefault();
         void (e.shiftKey ? saveAsNew() : saveNow());
+      } else if (key === 'p') {
+        // Печать браузера напечатала бы интерфейс — открываем своё окно печати
+        e.preventDefault();
+        setView({ mode: 'tree' });
+        setDialog('print');
       } else if (!inField && key === 'z' && !e.shiftKey) {
         e.preventDefault();
         undo();
@@ -141,6 +147,17 @@ export function Workspace() {
                   <div className="menu-list" role="menu">
                     <button type="button" role="menuitem" onClick={menuAction(() => void saveAsNew())}>
                       {t('toolbar.saveAs')}
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={!hasPeople}
+                      onClick={menuAction(() => {
+                        setView({ mode: 'tree' });
+                        setDialog('print');
+                      })}
+                    >
+                      {t('toolbar.print')}
                     </button>
                     <button type="button" role="menuitem" onClick={menuAction(() => setDialog('gedcom'))}>
                       {t('toolbar.exportGedcom')}
@@ -234,6 +251,7 @@ export function Workspace() {
       {dialog === 'snapshots' && <SnapshotsDialog onClose={() => setDialog(null)} />}
       {dialog === 'issues' && <IssuesDialog onClose={() => setDialog(null)} />}
       {dialog === 'gedcom' && <ExportGedcomDialog onClose={() => setDialog(null)} />}
+      {dialog === 'print' && hasPeople && <PrintDialog onClose={() => setDialog(null)} />}
       <ImportReportDialog />
       {dialog === 'kinship' && (
         <KinshipDialog

@@ -50,11 +50,11 @@ export function TreeChart() {
   );
 }
 
-type Computed =
+export type Computed =
   | { kind: 'cards'; chart: ChartLayout; bounds: Bounds }
   | { kind: 'fan'; fan: ReturnType<typeof layoutFan>; bounds: Bounds };
 
-function computeLayout(tree: TreeData, chart: ChartKind, focus: string, up: number, down: number): Computed {
+export function computeLayout(tree: TreeData, chart: ChartKind, focus: string, up: number, down: number): Computed {
   if (chart === 'fan') {
     const fan = layoutFan(tree, focus, up);
     const r = Math.max(fan.radius, FAN_CENTER_R);
@@ -76,18 +76,21 @@ function centerOf(chart: ChartLayout, focus: string, seq: string) {
 
 // ─── Карточки и линии ───────────────────────────────────────────────────────
 
-function CardsContent({
+export function CardsContent({
   tree,
   chart,
   vp,
   selectedId,
   focusId,
+  print = false,
 }: {
   tree: TreeData;
   chart: ChartLayout;
   vp: Viewport;
   selectedId?: string;
   focusId: string;
+  /** Для печати: без выделения, значков замечаний и упрощения */
+  print?: boolean;
 }) {
   // Рисуем только то, что попадает в видимую область
   const lines = chart.lines.filter((l) => {
@@ -110,7 +113,7 @@ function CardsContent({
   // Значок «!» — у того, о ком замечание проверки
   const issueIds = useMemo(() => new Set(computeIssues(tree).map((i) => i.personIds[0]!)), [tree]);
   // При сильном отдалении текст не читается — рисуем упрощённые карточки
-  const simple = vp.scale < 0.35;
+  const simple = !print && vp.scale < 0.35;
 
   return (
     <>
@@ -138,7 +141,7 @@ function CardsContent({
             focus={c.personId === focusId && !c.duplicate}
             simple={simple}
             photoUrl={bytes && photo ? urlFor(bytes, photo.mime) : undefined}
-            hasIssue={issueIds.has(c.personId)}
+            hasIssue={!print && issueIds.has(c.personId)}
           />
         );
       })}
@@ -260,7 +263,7 @@ function arcPath(s: FanSegment): string {
   ].join(' ');
 }
 
-function FanContent({ tree, fan, selectedId }: { tree: TreeData; fan: ReturnType<typeof layoutFan>; selectedId?: string }) {
+export function FanContent({ tree, fan, selectedId }: { tree: TreeData; fan: ReturnType<typeof layoutFan>; selectedId?: string }) {
   const { t } = useTranslation();
   const root = tree.people[fan.rootId];
   return (
