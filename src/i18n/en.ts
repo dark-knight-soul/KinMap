@@ -2,9 +2,12 @@ import type { Dictionary } from './ru';
 
 // Английские тексты интерфейса. Тип Dictionary не даст пропустить ключ.
 // Формы множественного числа _few/_many нужны только русскому — в английском их нет.
-type EnDictionary = Omit<Dictionary, 'welcome'> & {
-  welcome: Omit<Dictionary['welcome'], 'people_few' | 'people_many'>;
+type DropRuPlurals<T> = {
+  [K in keyof T as K extends `${string}_few` | `${string}_many` ? never : K]: T[K] extends string
+    ? T[K]
+    : DropRuPlurals<T[K]>;
 };
+type EnDictionary = DropRuPlurals<Dictionary>;
 
 export const en: EnDictionary = {
   app: {
@@ -132,8 +135,9 @@ export const en: EnDictionary = {
     livingNo: 'Deceased',
     alive: 'living',
     dead: 'deceased',
-    notes: 'Notes',
-    notesPlaceholder: 'What you know about this person',
+    notes: 'Biography',
+    notesPlaceholder: 'Life, work, moves, family stories…',
+    occupation: 'Occupation',
     makeRoot: 'Make main person',
     isRoot: 'Main person',
     delete: 'Delete person',
@@ -269,6 +273,54 @@ export const en: EnDictionary = {
     moreBelow: 'More descendants — show',
     back: '← Back to tree',
     center: 'Center chart',
+  },
+  photos: {
+    title: 'Photos',
+    add: '+ Add photos',
+    processing: 'Compressing…',
+    dropHint: 'You can drop photos here.',
+    privacyNote: 'Photos are compressed and location data (GPS) is removed.',
+    main: 'Main',
+    makeMain: 'Make main',
+    crop: 'Crop for avatar',
+    cropTitle: 'Avatar',
+    cropHint: 'Drag the photo so the face is inside the circle.',
+    zoom: 'Zoom',
+    delete: 'Delete photo',
+    deleted: 'Photo deleted. Undo — Ctrl+Z',
+    caption: 'Caption',
+    date: 'Photo date',
+    added_one: '{{count}} photo added',
+    added_other: '{{count}} photos added',
+    errors: {
+      notImage: '“{{name}}” is not an image',
+      unsupported: 'The browser cannot open “{{name}}” (e.g. HEIC from iPhone). Save it as JPEG and try again.',
+      tooBig: '“{{name}}” is larger than 40 MB',
+    },
+  },
+  checks: {
+    title: 'Data check',
+    hint: 'KinMap looks for obvious mistakes in dates and links. Approximate dates (“abt 1950”) are taken into account: an issue is shown only if it is wrong in every possible case. If everything is correct, press “Not a mistake”.',
+    none: 'No issues',
+    count_one: '{{count}} issue',
+    count_other: '{{count}} issues',
+    errors: 'Errors',
+    warnings: 'Worth checking',
+    ignore: 'Not a mistake',
+    cardHint: 'There is an issue — open the card',
+    deathBeforeBirth: '{{a}}: death date is before birth date',
+    tooOld: '{{a}}: lived more than {{years}} years — check the dates',
+    parentTooYoung: '{{b}}: younger than {{years}} at the birth of a child ({{a}})',
+    motherTooOld: '{{b}}: older than {{years}} at the birth of a child ({{a}})',
+    fatherTooOld: '{{b}}: older than {{years}} at the birth of a child ({{a}})',
+    bornAfterMotherDeath: '{{a}}: born after the mother’s death ({{b}})',
+    bornAfterFatherDeath: '{{a}}: born more than 10 months after the father’s death ({{b}})',
+    marriageBeforeBirth: '{{a}}: marriage date is before birth date',
+    marriedTooYoung: '{{a}}: married younger than {{years}}',
+    marriageAfterDeath: '{{a}}: marriage date is after death date',
+    siblingsTooClose: '{{a}} and {{b}}: children of the same mother born less than 8 months apart',
+    ownAncestor: '{{a}}: is their own ancestor — the links form a loop',
+    possibleDuplicate: '{{a}} and {{b}}: possibly the same person',
   },
   errors: {
     op: {

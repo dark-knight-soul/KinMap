@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { deriveKey, type EncryptionKey } from '../file/crypto';
-import { serializeTree } from '../file/format';
+import { serializeTree, type MediaStore } from '../file/format';
 import { fileNameFor, hasWritePermission, saveAs, writeToHandle } from '../file/io';
 import { OpError } from '../model/ops';
 import type { TreeData } from '../model/types';
@@ -40,6 +40,11 @@ export interface Session {
   selectedId?: string;
   /** Вокруг кого строится схема */
   focusId?: string;
+  /**
+   * Байты фотографий по id. Только добавляются (не удаляются), чтобы отмена удаления
+   * фото работала; при сохранении в файл попадают лишь те, на которые есть ссылки.
+   */
+  media: MediaStore;
 }
 
 export interface Notice {
@@ -105,6 +110,7 @@ export function dismissNotice(): void {
 
 export interface OpenParams {
   tree: TreeData;
+  media?: MediaStore;
   key: EncryptionKey | null;
   fileName?: string;
   handle?: FileSystemFileHandle | null;
@@ -131,6 +137,7 @@ export async function openSession(p: OpenParams): Promise<void> {
       // Карточку сразу не открываем — сначала человек видит древо целиком
       selectedId: undefined,
       focusId: p.tree.rootPersonId,
+      media: p.media ?? {},
     },
   });
   lastSnapshotAt = 0;
@@ -203,6 +210,12 @@ export function select(id: string | undefined): void {
   setSession({ selectedId: id });
 }
 
+/** Добавить байты фото (сама ссылка на фото добавляется в древо через apply) */
+export function addMedia(items: MediaStore): void {
+  const s = state.session;
+  if (s) setSession({ media: { ...s.media, ...items } });
+}
+
 /** Сделать человека центром схемы (и выбрать его) */
 export function setFocus(id: string): void {
   if (state.session?.history.present.people[id]) setSession({ focusId: id, selectedId: id });
@@ -257,7 +270,7 @@ function persistToBrowser(): Promise<void> {
     }
     const tree = s.history.present;
     try {
-      const bytes = await serializeTree(tree, s.key);
+      const bytes = await serializeTree(tree, s.key, s.media);
       const peopleCount = Object.keys(tree.people).length;
       await saveWorkingCopy({
         treeId: tree.id,
@@ -311,7 +324,7 @@ function writeCurrentToHandle(): Promise<void> {
     const revision = s.revision;
     setSession({ savingToFile: true });
     try {
-      await writeToHandle(s.handle, await serializeTree(s.history.present, s.key));
+      await writeToHandle(s.handle, await serializeTree(s.history.present, s.key, s.media));
       setSession({ savingToFile: false });
       afterFileSaved(revision, s.handle.name, s.handle);
     } catch {
@@ -348,7 +361,7 @@ export async function saveAsNew(): Promise<void> {
   void requestPersistence();
   const revision = s.revision;
   const tree = s.history.present;
-  const result = await saveAs(await serializeTree(tree, s.key), s.fileName ?? fileNameFor(tree.name));
+  const result = await saveAs(await serializeTree(tree, s.key, s.media), s.fileName ?? fileNameFor(tree.name));
   if (!result) return;
   afterFileSaved(revision, result.name, result.handle);
   void saveFileHandle(tree.id, result.handle);

@@ -8,6 +8,9 @@ import { setView, useView } from '../state/view';
 import { DateField } from './DateField';
 import { lifespan, useNameOf } from './format';
 import { ConfirmDialog } from './Modal';
+import { PersonIssues } from './IssuesView';
+import { Avatar } from './media';
+import { PhotosSection } from './photos/PhotosSection';
 import { Relations } from './Relations';
 
 // Карточка человека: имя, пол, даты, заметки и связи.
@@ -57,9 +60,14 @@ export function PersonEditor() {
       </button>
 
       <div className="editor-head">
-        <div>
-          <h2>{nameOf(person)}</h2>
-          <span className="muted">{lifespan(person)}</span>
+        <div className="editor-title">
+          <Avatar person={person} size={56} />
+          <div>
+            <h2>{nameOf(person)}</h2>
+            <span className="muted">
+              {[lifespan(person), person.occupation].filter(Boolean).join(' · ')}
+            </span>
+          </div>
         </div>
         <div className="editor-head-actions">
           {(focusId !== id || view.mode !== 'tree') && (
@@ -86,6 +94,8 @@ export function PersonEditor() {
           </button>
         </div>
       </div>
+
+      <PersonIssues personId={id} />
 
       <div className="form-grid">
         <TextField id="field-surname" label={t('person.surname')} value={person.names.surname} onChange={setName('surname')} />
@@ -154,15 +164,24 @@ export function PersonEditor() {
       </div>
       <p className="muted small">{t('person.dateHint')}</p>
 
+      <TextField
+        id="field-occupation"
+        label={t('person.occupation')}
+        value={person.occupation}
+        onChange={(v) => update((p) => ({ ...p, occupation: v || undefined }), 'occupation')}
+      />
+
       <label className="field">
         <span>{t('person.notes')}</span>
         <textarea
-          rows={4}
+          rows={6}
           value={person.notes ?? ''}
           placeholder={t('person.notesPlaceholder')}
           onChange={(e) => update((p) => ({ ...p, notes: e.target.value || undefined }), 'notes')}
         />
       </label>
+
+      <PhotosSection person={person} />
 
       <Relations person={person} />
 

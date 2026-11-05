@@ -745,3 +745,90 @@ textarea {
   .chart-hint { display: none; }
   .view-bar { padding: 8px 12px; }
 }
+/* ───────────── Этап 4: фото, аватары, замечания ───────────── */
+.avatar { flex: none; border-radius: 50%; }
+.avatar-bg { fill: color-mix(in srgb, var(--sex-u) 25%, var(--surface)); }
+.avatar-M .avatar-bg { fill: color-mix(in srgb, var(--sex-m) 25%, var(--surface)); }
+.avatar-F .avatar-bg { fill: color-mix(in srgb, var(--sex-f) 25%, var(--surface)); }
+.avatar-text { fill: var(--text); font-weight: 600; font-family: inherit; }
+
+.editor-title { display: flex; align-items: center; gap: 14px; min-width: 0; }
+
+.photos h3 { font-size: 1.05rem; margin: 0 0 8px; }
+.photos.drop-target { outline-offset: 4px; border-radius: 10px; }
+.photo-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.photo-thumb, .photo-add {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  overflow: hidden;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text);
+}
+.photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-thumb:hover, .photo-add:hover:not(:disabled) { border-color: var(--accent); }
+.photo-add { border-style: dashed; font-size: 0.85rem; padding: 6px; color: var(--muted); }
+.photo-badge {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  font-size: 0.7rem;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.photo-view { position: relative; display: flex; justify-content: center; background: var(--bg); border-radius: 10px; }
+.photo-view img { max-width: 100%; max-height: 60vh; object-fit: contain; border-radius: 10px; }
+.photo-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  font-size: 1.6rem;
+}
+.photo-prev { left: 6px; }
+.photo-next { right: 6px; }
+
+.crop-view {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #000;
+  cursor: grab;
+  touch-action: none;
+  align-self: center;
+}
+.crop-view img { position: absolute; left: 0; top: 0; max-width: none; user-select: none; pointer-events: none; }
+.crop-circle {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 999px rgb(0 0 0 / 0.5);
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+  pointer-events: none;
+}
+input[type='range'] { padding: 0; accent-color: var(--accent); }
+
+.issues-box {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  border-radius: 10px;
+  padding: 8px 14px;
+}
+.issues-box ul, .issues-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.issue { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.issues-box .link-btn { color: inherit; text-decoration: underline; }
+.issues-list .issue { padding: 6px 0; border-bottom: 1px solid var(--border); }
+.issues-list .issue-error .link-btn { color: var(--danger); }
+.issues-btn { color: var(--warn-text); background: var(--warn-bg); border-color: transparent; }
+.issues-btn.has-errors { color: var(--danger); }
+
+.card-issue circle { fill: #e0a100; }
+.card-issue text { fill: #1f1600 !important; font-size: 12px; font-weight: 700; }

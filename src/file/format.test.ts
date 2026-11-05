@@ -54,6 +54,44 @@ describe('файл .kinmap', () => {
   });
 });
 
+describe('фото в файле', () => {
+  const withPhoto = () => {
+    const base = sampleTree();
+    const id = Object.keys(base.people)[0]!;
+    const photo = { id: 'ph1abc', mime: 'image/webp', w: 10, h: 20, caption: 'Свадьба', crop: { x: 0, y: 0.1, size: 1 } };
+    return { tree: { ...base, people: { ...base.people, [id]: { ...base.people[id]!, photos: [photo] } } }, id };
+  };
+  const bytes = new Uint8Array([1, 2, 3, 4, 5]);
+
+  it('фото сохраняется и открывается вместе с древом', async () => {
+    const { tree } = withPhoto();
+    const loaded = unpackTree(packTree(tree, { ph1abc: bytes, лишнее: new Uint8Array([9]) }));
+    expect(loaded.tree).toEqual(tree);
+    expect(loaded.media).toEqual({ ph1abc: bytes });
+    expect(loaded.warnings).toEqual([]);
+  });
+
+  it('фото внутри зашифрованного файла', async () => {
+    const { tree } = withPhoto();
+    const key = await deriveKey('пароль', FAST);
+    const loaded = await deserializeTree(await serializeTree(tree, key, { ph1abc: bytes }), 'пароль');
+    expect(loaded.media.ph1abc).toEqual(bytes);
+  });
+
+  it('пропавшее фото — ссылка убирается, предупреждение', () => {
+    const { tree, id } = withPhoto();
+    const loaded = unpackTree(packTree(tree, {}));
+    expect(loaded.tree.people[id]?.photos).toBeUndefined();
+    expect(loaded.warnings).toEqual(['missingPhotos']);
+  });
+
+  it('опасный id фото (путь) не принимается', () => {
+    const { tree, id } = withPhoto();
+    const bad = { ...tree, people: { ...tree.people, [id]: { ...tree.people[id]!, photos: [{ id: '../../x', mime: 'image/webp', w: 1, h: 1 }] } } };
+    expect(unpackTree(strToU8(JSON.stringify(bad))).tree.people[id]?.photos).toBeUndefined();
+  });
+});
+
 describe('починка данных при открытии', () => {
   it('битые ссылки, лишние партнёры и мусор убираются с предупреждением', () => {
     const { tree, warnings } = normalizeTree({

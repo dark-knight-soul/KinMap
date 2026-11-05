@@ -16,6 +16,7 @@ import {
   type Session,
 } from '../state/store';
 import { setView, useView } from '../state/view';
+import { IssuesButton, IssuesDialog } from './IssuesView';
 import { ConfirmDialog } from './Modal';
 import { PasswordDialog } from './PasswordDialog';
 import { PeopleList, addEmptyPerson } from './PeopleList';
@@ -28,7 +29,7 @@ import { TreeToolbar } from './tree/TreeToolbar';
 /** Через сколько минут без сохранения в файл показывать напоминание */
 const REMIND_AFTER_MIN = 15;
 
-type DialogName = 'password' | 'snapshots' | 'close' | null;
+type DialogName = 'password' | 'snapshots' | 'close' | 'issues' | null;
 
 export function Workspace() {
   const { t } = useTranslation();
@@ -191,6 +192,7 @@ export function Workspace() {
           ))}
         </div>
         {view.mode === 'tree' && hasPeople && <TreeToolbar />}
+        <IssuesButton onClick={() => setDialog('issues')} />
       </div>
 
       {view.mode === 'list' ? (
@@ -220,6 +222,7 @@ export function Workspace() {
 
       {dialog === 'password' && <PasswordDialog onClose={() => setDialog(null)} />}
       {dialog === 'snapshots' && <SnapshotsDialog onClose={() => setDialog(null)} />}
+      {dialog === 'issues' && <IssuesDialog onClose={() => setDialog(null)} />}
       {dialog === 'close' && (
         <ConfirmDialog
           title={t('close.title')}

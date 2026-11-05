@@ -5,6 +5,7 @@ import { matchesQuery, sortKey } from '../model/queries';
 import type { PersonId, TreeData } from '../model/types';
 import { apply, getState, select, useApp } from '../state/store';
 import { lifespan, useNameOf } from './format';
+import { Avatar } from './media';
 
 // Список людей с поиском. На этапе 3 рядом появится само древо.
 export function PeopleList() {
@@ -60,7 +61,7 @@ export function PeopleList() {
                   className={p.id === selectedId ? 'person-row selected' : 'person-row'}
                   onClick={() => select(p.id)}
                 >
-                  <span className={`sex-dot sex-${p.sex}`} aria-hidden="true" />
+                  <Avatar person={p} size={28} />
                   <span className="person-row-name">
                     {nameOf(p)}
                     {p.id === tree.rootPersonId && (

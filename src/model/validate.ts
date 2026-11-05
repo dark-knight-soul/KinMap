@@ -1,4 +1,16 @@
-import { TREE_FORMAT_VERSION, type ChildRelation, type DatePart, type Family, type FuzzyDate, type LifeEvent, type Person, type Sex, type TreeData, type UnionStatus } from './types';
+import {
+  TREE_FORMAT_VERSION,
+  type ChildRelation,
+  type DatePart,
+  type Family,
+  type FuzzyDate,
+  type LifeEvent,
+  type Person,
+  type PersonPhoto,
+  type Sex,
+  type TreeData,
+  type UnionStatus,
+} from './types';
 
 // Проверка и «починка» данных при открытии файла. Файл мог быть повреждён,
 // отредактирован руками или создан другой версией программы — приложение не должно
@@ -14,7 +26,7 @@ export class LoadError extends Error {
 }
 
 /** Что пришлось исправить при открытии */
-export type LoadWarning = 'brokenLinks' | 'tooManyPartners' | 'badValues' | 'emptyFamilies';
+export type LoadWarning = 'brokenLinks' | 'tooManyPartners' | 'badValues' | 'emptyFamilies' | 'missingPhotos';
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -59,6 +71,33 @@ function cleanEvent(v: unknown): LifeEvent | undefined {
   return out.date || out.place ? out : undefined;
 }
 
+const PHOTO_ID = /^[a-z0-9]{4,40}$/i;
+const PHOTO_MIMES = ['image/webp', 'image/jpeg', 'image/png'];
+const frac = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1;
+
+function cleanPhotos(v: unknown): PersonPhoto[] {
+  if (!Array.isArray(v)) return [];
+  const out: PersonPhoto[] = [];
+  for (const p of v) {
+    // id идёт в имя файла внутри архива — только безопасные символы
+    if (!isObj(p) || typeof p.id !== 'string' || !PHOTO_ID.test(p.id)) continue;
+    if (typeof p.mime !== 'string' || !PHOTO_MIMES.includes(p.mime)) continue;
+    const w = Number(p.w);
+    const h = Number(p.h);
+    if (!(w > 0 && h > 0)) continue;
+    const photo: PersonPhoto = { id: p.id, mime: p.mime, w, h };
+    const caption = str(p.caption);
+    if (caption) photo.caption = caption;
+    const date = cleanDate(p.date);
+    if (date) photo.date = date;
+    if (isObj(p.crop) && frac(p.crop.x) && frac(p.crop.y) && frac(p.crop.size) && (p.crop.size as number) > 0) {
+      photo.crop = { x: p.crop.x as number, y: p.crop.y as number, size: p.crop.size as number };
+    }
+    out.push(photo);
+  }
+  return out;
+}
+
 export function normalizeTree(raw: unknown): { tree: TreeData; warnings: LoadWarning[] } {
   if (!isObj(raw) || raw.format !== 'kinmap') throw new LoadError('notKinmap');
   if (typeof raw.version !== 'number') throw new LoadError('corrupt');
@@ -92,6 +131,14 @@ export function normalizeTree(raw: unknown): { tree: TreeData; warnings: LoadWar
       if (typeof value.living === 'boolean') person.living = value.living;
       const notes = str(value.notes);
       if (notes) person.notes = notes;
+      const occupation = str(value.occupation);
+      if (occupation) person.occupation = occupation;
+      const photos = cleanPhotos(value.photos);
+      if (photos.length) person.photos = photos;
+      if (Array.isArray(value.ignoredChecks)) {
+        const ignored = value.ignoredChecks.filter((x): x is string => typeof x === 'string');
+        if (ignored.length) person.ignoredChecks = ignored;
+      }
       people[key] = person;
     }
   }

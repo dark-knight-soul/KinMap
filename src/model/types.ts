@@ -56,8 +56,34 @@ export interface Person {
    * (нужно для скрытия живых при экспорте, этап 6).
    */
   living?: boolean;
-  /** Биография и заметки (этап 4) */
+  /** Биография и заметки */
   notes?: string;
+  /** Профессия, занятие */
+  occupation?: string;
+  /** Фотографии. Первая — главная (на схеме и в списке) */
+  photos?: PersonPhoto[];
+  /** Замечания проверки, которые человек отметил «это не ошибка» */
+  ignoredChecks?: string[];
+}
+
+/** Обрезка для аватара: квадрат в долях от размеров фото */
+export interface PhotoCrop {
+  /** Левый верхний угол квадрата (доля ширины и высоты) */
+  x: number;
+  y: number;
+  /** Сторона квадрата — доля от меньшей стороны фото */
+  size: number;
+}
+
+export interface PersonPhoto {
+  /** id файла фото в архиве (photos/<id>) */
+  id: string;
+  mime: string;
+  w: number;
+  h: number;
+  caption?: string;
+  date?: FuzzyDate;
+  crop?: PhotoCrop;
 }
 
 /** Как ребёнок связан с союзом */

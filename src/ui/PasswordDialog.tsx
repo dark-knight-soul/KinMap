@@ -49,7 +49,7 @@ export function PasswordDialog({ onClose }: { onClose: () => void }) {
     if (!s) return;
     const tree = s.history.present;
     const name = fileNameFor(`${tree.name} (${t('password.plainCopy').toLowerCase()})`);
-    download(await serializeTree(tree, null), name);
+    download(await serializeTree(tree, null, s.media), name);
   };
 
   return (

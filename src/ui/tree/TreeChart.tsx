@@ -6,7 +6,10 @@ import { CARD_H, CARD_W, type Bounds, type CardBox, type ChartLayout } from '../
 import type { Person, TreeData } from '../../model/types';
 import { select, setFocus, useApp } from '../../state/store';
 import { useView, type ChartKind } from '../../state/view';
+import { avatarGeometry } from '../../file/images';
+import { computeIssues } from '../../model/checks';
 import { lifespan } from '../format';
+import { urlFor } from '../media';
 import { PanZoom, type Viewport } from './PanZoom';
 
 // Схема древа: считает раскладку для выбранного вида и рисует карточки и линии.
@@ -103,11 +106,19 @@ function CardsContent({
   const cards = chart.cards.filter(
     (c) => c.x + CARD_W >= vp.minX && c.x <= vp.maxX && c.y + CARD_H >= vp.minY && c.y <= vp.maxY,
   );
+  const media = useApp((s) => s.session!.media);
+  // Значок «!» — у того, о ком замечание проверки
+  const issueIds = useMemo(() => new Set(computeIssues(tree).map((i) => i.personIds[0]!)), [tree]);
   // При сильном отдалении текст не читается — рисуем упрощённые карточки
   const simple = vp.scale < 0.35;
 
   return (
     <>
+      <defs>
+        <clipPath id="km-avatar">
+          <circle cx={AV / 2} cy={AV / 2} r={AV / 2} />
+        </clipPath>
+      </defs>
       <g className="links">
         {lines.map((l) => (
           <polyline key={l.key} points={l.points.map((p) => p.join(',')).join(' ')} className={l.dashed ? 'link dashed' : 'link'} />
@@ -115,7 +126,10 @@ function CardsContent({
       </g>
       {cards.map((c) => {
         const person = tree.people[c.personId];
-        return person ? (
+        if (!person) return null;
+        const photo = person.photos?.[0];
+        const bytes = photo ? media[photo.id] : undefined;
+        return (
           <Card
             key={c.key}
             box={c}
@@ -123,14 +137,19 @@ function CardsContent({
             selected={c.personId === selectedId}
             focus={c.personId === focusId && !c.duplicate}
             simple={simple}
+            photoUrl={bytes && photo ? urlFor(bytes, photo.mime) : undefined}
+            hasIssue={issueIds.has(c.personId)}
           />
-        ) : null;
+        );
       })}
     </>
   );
 }
 
 const MAX_CHARS = 21;
+const MAX_CHARS_PHOTO = 14;
+/** Диаметр аватара на карточке */
+const AV = 44;
 const cut = (s: string, n = MAX_CHARS) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
 const Card = memo(function Card({
@@ -139,12 +158,16 @@ const Card = memo(function Card({
   selected,
   focus,
   simple,
+  photoUrl,
+  hasIssue,
 }: {
   box: CardBox;
   person: Person;
   selected: boolean;
   focus: boolean;
   simple: boolean;
+  photoUrl?: string;
+  hasIssue: boolean;
 }) {
   const { t } = useTranslation();
   const n = person.names;
@@ -155,6 +178,10 @@ const Card = memo(function Card({
     .filter(Boolean)
     .join(' ');
   const title = [n.given, n.patronymic, n.surname].filter(Boolean).join(' ') + (years ? ` (${years})` : '');
+  const photo = person.photos?.[0];
+  const withPhoto = !!(photo && photoUrl);
+  const textX = withPhoto ? 14 + AV + 10 : 16;
+  const maxChars = withPhoto ? MAX_CHARS_PHOTO : MAX_CHARS;
 
   return (
     <g
@@ -170,16 +197,31 @@ const Card = memo(function Card({
       <rect className="card-stripe" width={6} height={CARD_H} rx={3} />
       {!simple && (
         <>
-          <text x={16} y={24} className="card-name">
-            {cut(line1)}
+          {photo && photoUrl && (
+            // Вложенный svg: внутри него координаты 0..AV, и одна общая маска-круг подходит всем карточкам
+            <svg x={14} y={(CARD_H - AV) / 2} width={AV} height={AV} overflow="hidden">
+              <image href={photoUrl} {...avatarGeometry(photo, AV)} clipPath="url(#km-avatar)" preserveAspectRatio="none" />
+            </svg>
+          )}
+          <text x={textX} y={24} className="card-name">
+            {cut(line1, maxChars)}
           </text>
-          <text x={16} y={42} className="card-surname">
-            {cut(line2)}
+          <text x={textX} y={42} className="card-surname">
+            {cut(line2, maxChars)}
           </text>
-          <text x={16} y={61} className="card-years">
+          <text x={textX} y={61} className="card-years">
             {box.duplicate ? `↪ ${years}` : years}
           </text>
         </>
+      )}
+      {hasIssue && (
+        <g className="card-issue">
+          <title>{t('checks.cardHint')}</title>
+          <circle cx={CARD_W - 12} cy={12} r={8} />
+          <text x={CARD_W - 12} y={16} textAnchor="middle">
+            !
+          </text>
+        </g>
       )}
       {box.moreAbove && (
         <g className="more" onClick={(e) => (e.stopPropagation(), setFocus(person.id))}>

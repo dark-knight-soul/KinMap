@@ -86,6 +86,7 @@ export function useOpenFlow() {
           if (!fromBrowser) return;
           await openSession({
             tree: fromBrowser.tree,
+            media: fromBrowser.media,
             key: fromBrowser.key ?? decoded.key,
             fileName: file.name,
             handle: file.handle,
@@ -99,6 +100,7 @@ export function useOpenFlow() {
       if (decoded.warnings.length) notify('load.warnings', undefined, 'error');
       await openSession({
         tree: decoded.tree,
+        media: decoded.media,
         key: decoded.key,
         fileName: file.name,
         handle: file.handle,
@@ -124,6 +126,7 @@ export function useOpenFlow() {
       const synced = !!copy.savedToFileAt && copy.savedToFileAt >= copy.updatedAt;
       await openSession({
         tree: decoded.tree,
+        media: decoded.media,
         key: decoded.key,
         fileName: copy.fileName,
         handle: (await getFileHandle(copy.treeId)) ?? null,

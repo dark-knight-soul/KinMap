@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { decrypt, decryptWithKey } from '../file/crypto';
 import { unpackTree } from '../file/format';
-import { apply, getState, notify, useApp } from '../state/store';
+import { addMedia, apply, getState, notify, useApp } from '../state/store';
 import { MAX_SNAPSHOTS, listSnapshots, type Snapshot } from '../storage/local';
 import { formatDateTime } from './format';
 import { Modal } from './Modal';
@@ -23,7 +23,8 @@ export function SnapshotsDialog({ onClose }: { onClose: () => void }) {
   }, [treeId]);
 
   const applySnapshot = (bytes: Uint8Array, snap: Snapshot) => {
-    const { tree } = unpackTree(bytes);
+    const { tree, media } = unpackTree(bytes);
+    addMedia(media);
     // id древа оставляем текущим, чтобы копия не стала «другим» древом
     apply((current) => ({ ...tree, id: current.id }));
     notify('snapshots.restored', { date: formatDateTime(snap.at, i18n.language) });
