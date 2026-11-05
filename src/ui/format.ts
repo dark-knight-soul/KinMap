@@ -24,7 +24,8 @@ export function lifespan(person: Person): string {
   const b = approxYear(person.birth?.date);
   const d = approxYear(person.death?.date);
   if (b && d) return `${b}–${d}`;
-  if (b) return person.death ? `${b}–?` : String(b);
+  // Умер, но дата неизвестна (в т.ч. отметка «умер» без даты из GEDCOM) — «1934–?»
+  if (b) return person.death || person.living === false ? `${b}–?` : String(b);
   if (d) return `?–${d}`;
   return '';
 }

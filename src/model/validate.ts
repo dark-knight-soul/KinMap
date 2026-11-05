@@ -4,6 +4,8 @@ import {
   type DatePart,
   type Family,
   type FuzzyDate,
+  type GedcomExtra,
+  type GedNode,
   type LifeEvent,
   type Person,
   type PersonPhoto,
@@ -69,6 +71,43 @@ function cleanEvent(v: unknown): LifeEvent | undefined {
   const place = str(v.place);
   if (place) out.place = place;
   return out.date || out.place ? out : undefined;
+}
+
+// ─── Сохранённые поля GEDCOM ───
+const GED_TAG = /^[A-Za-z0-9_]{1,40}$/;
+const GED_MAX_DEPTH = 30;
+const GED_MAX_VALUE = 100_000;
+
+export function cleanGedNodes(v: unknown, depth = 0): GedNode[] {
+  if (!Array.isArray(v) || depth > GED_MAX_DEPTH) return [];
+  const out: GedNode[] = [];
+  for (const n of v) {
+    if (!isObj(n) || typeof n.tag !== 'string' || !GED_TAG.test(n.tag)) continue;
+    const node: GedNode = { tag: n.tag };
+    if (typeof n.value === 'string') node.value = n.value.slice(0, GED_MAX_VALUE);
+    if (typeof n.xref === 'string' && /^[A-Za-z0-9_\-:.]{1,40}$/.test(n.xref)) node.xref = n.xref;
+    const children = cleanGedNodes(n.children, depth + 1);
+    if (children.length) node.children = children;
+    out.push(node);
+  }
+  return out;
+}
+
+function cleanGedcomExtra(v: unknown): GedcomExtra | undefined {
+  if (!isObj(v)) return undefined;
+  const out: GedcomExtra = {};
+  if (typeof v.xref === 'string' && /^[A-Za-z0-9_\-:.]{1,40}$/.test(v.xref)) out.xref = v.xref;
+  const extra = cleanGedNodes(v.extra);
+  if (extra.length) out.extra = extra;
+  if (isObj(v.events)) {
+    const events: Record<string, GedNode[]> = {};
+    for (const [k, nodes] of Object.entries(v.events)) {
+      const cleaned = cleanGedNodes(nodes);
+      if (GED_TAG.test(k) && cleaned.length) events[k] = cleaned;
+    }
+    if (Object.keys(events).length) out.events = events;
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 const PHOTO_ID = /^[a-z0-9]{4,40}$/i;
@@ -139,6 +178,8 @@ export function normalizeTree(raw: unknown): { tree: TreeData; warnings: LoadWar
         const ignored = value.ignoredChecks.filter((x): x is string => typeof x === 'string');
         if (ignored.length) person.ignoredChecks = ignored;
       }
+      const ged = cleanGedcomExtra(value.gedcom);
+      if (ged) person.gedcom = ged;
       people[key] = person;
     }
   }
@@ -185,6 +226,8 @@ export function normalizeTree(raw: unknown): { tree: TreeData; warnings: LoadWar
       if (marriage) family.marriage = marriage;
       const divorce = cleanEvent(value.divorce);
       if (divorce) family.divorce = divorce;
+      const ged = cleanGedcomExtra(value.gedcom);
+      if (ged) family.gedcom = ged;
       families[key] = family;
     }
   }
@@ -199,6 +242,8 @@ export function normalizeTree(raw: unknown): { tree: TreeData; warnings: LoadWar
     people,
     families,
   };
+  const records = cleanGedNodes(raw.gedcomRecords);
+  if (records.length) tree.gedcomRecords = records;
   const root = str(raw.rootPersonId);
   tree.rootPersonId = root && people[root] ? root : Object.keys(people)[0];
   if (!tree.rootPersonId) delete tree.rootPersonId;

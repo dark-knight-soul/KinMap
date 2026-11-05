@@ -1,0 +1,46 @@
+0 HEAD
+1 GEDC
+2 VERS 7.0
+1 SOUR SOMEAPP
+2 NAME Some Genealogy App
+1 SCHMA
+2 TAG _SKYPE http://example.com/skype
+0 @I1@ INDI
+1 NAME Anna /Fiction/
+2 GIVN Anna
+2 SURN Fiction
+1 SEX F
+1 BIRT
+2 DATE 7 JUL 1950
+2 PLAC Riga
+1 DEAT
+2 DATE
+3 PHRASE Sometime during the war
+1 SNOTE @N1@
+1 EXID 1234
+2 TYPE http://example.com/
+1 _SKYPE anna.fiction
+1 OBJE @O1@
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Boris /Fiction/
+1 SEX M
+1 BIRT
+2 DATE JULIAN 12 MAR 1700
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Clara /Fiction/
+1 SEX F
+1 FAMC @F1@
+2 PEDI FOSTER
+0 @F1@ FAM
+1 HUSB @I2@
+1 WIFE @I1@
+1 CHIL @I3@
+0 @N1@ SNOTE Anna loved music.
+1 CONT She played the violin.
+0 @O1@ OBJE
+1 FILE media/anna.jpg
+2 FORM image/jpeg
+2 TITL Anna at 20
+0 TRLR

@@ -1,0 +1,101 @@
+0 HEAD
+1 SOUR MYHERITAGE
+2 NAME MyHeritage Family Tree Builder
+2 VERS 5.5.1
+1 DEST MYHERITAGE
+1 DATE 12 OCT 2026
+1 GEDC
+2 VERS 5.5.1
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+1 LANG Russian
+1 _PROJECT_GUID 0F1A2B3C4D5E6F
+0 @I1@ INDI
+1 _UPD 12 OCT 2026 10:00:00 GMT -0500
+1 NAME Михаил Андреевич /Вымыслов/
+2 GIVN Михаил Андреевич
+2 SURN Вымыслов
+1 SEX M
+1 BIRT
+2 DATE 5 JUN 1931
+2 PLAC Казань, Россия
+2 SOUR @S1@
+3 PAGE Запись № 117
+1 DEAT
+2 DATE BET 1990 AND 1995
+2 PLAC Москва, Россия
+1 OCCU Инженер-строитель
+1 NOTE @N1@
+1 RIN MH:I1
+1 _UID 6A2E7B1F0C9D4E5F8A7B6C5D4E3F2A1B
+1 OBJE
+2 FORM jpg
+2 FILE https://www.myheritage.com/photos/fake1.jpg
+2 TITL Портрет 1955 года
+1 FAMS @F1@
+0 @I2@ INDI
+1 NAME Вера Ивановна /Вымыслова/
+2 GIVN Вера Ивановна
+2 SURN Вымыслова
+1 NAME Вера Ивановна /Придуманова/
+2 TYPE maiden
+1 SEX F
+1 BIRT
+2 DATE ABT 1934
+1 DEAT Y
+1 FAMS @F1@
+0 @I3@ INDI
+1 NAME Андрей Михайлович /Вымыслов/
+1 SEX M
+1 BIRT
+2 DATE 14 FEB 1958
+2 PLAC Москва
+1 FAMC @F1@
+2 PEDI birth
+1 FAMS @F2@
+0 @I4@ INDI
+1 NAME Ольга /Вымыслова/
+1 SEX F
+1 BIRT
+2 DATE 1961
+1 FAMC @F1@
+2 PEDI adopted
+0 @I5@ INDI
+1 NAME Нина Петровна /Вымыслова/
+1 SEX F
+1 BIRT
+2 DATE 3 MAR 1960
+1 FAMS @F2@
+0 @I6@ INDI
+1 NAME Кирилл Андреевич /Вымыслов/
+1 SEX M
+1 BIRT
+2 DATE 1985
+1 FAMC @F2@
+0 @F1@ FAM
+1 HUSB @I1@
+1 WIFE @I2@
+1 CHIL @I3@
+1 CHIL @I4@
+1 MARR
+2 DATE 20 AUG 1955
+2 PLAC Казань
+2 NOTE Венчание в Петропавловском соборе
+1 RIN MH:F1
+1 _UID 1B2C3D4E5F6A7B8C9D0E1F2A3B4C5D6E
+0 @F2@ FAM
+1 HUSB @I3@
+1 WIFE @I5@
+1 CHIL @I6@
+1 MARR
+2 DATE 1983
+1 DIV
+2 DATE 1999
+0 @N1@ NOTE Михаил Андреевич строил мосты по всему Поволжью. После выхода на пенсию ра
+1 CONC ботал над книгой воспоминаний.
+1 CONT Книга так и не была издана.
+0 @S1@ SOUR
+1 TITL Метрическая книга, Казань, 1931
+1 AUTH Архив (выдуманный)
+1 _UID 5F4E3D2C1B0A
+0 TRLR

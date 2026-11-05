@@ -5,7 +5,10 @@ import { deserializeTree } from '../file/format';
 import { pickFileToOpen, type OpenedFile } from '../file/io';
 import { LoadError } from '../model/validate';
 import type { TreeData } from '../model/types';
-import { notify, openSession } from '../state/store';
+import { compressImage } from '../file/images';
+import { GedcomError, importGedcomFile, looksLikeGedcom } from '../gedcom/import';
+import { updatePerson } from '../model/ops';
+import { notify, openSession, showImportReport } from '../state/store';
 import { addSnapshot, getFileHandle, getWorkingCopy, type WorkingCopy } from '../storage/local';
 import { formatDateTime } from './format';
 import { Modal } from './Modal';
@@ -59,9 +62,42 @@ export function useOpenFlow() {
     }
   }
 
+  /** Импорт GEDCOM: новое древо + отчёт. Фото из GEDZIP сжимаются, как при обычном добавлении */
+  async function importGedcomInput(file: OpenedFile): Promise<void> {
+    let result;
+    try {
+      result = importGedcomFile(file.bytes, file.name);
+    } catch (e) {
+      notify(`gedcom.errors.${e instanceof GedcomError ? e.code : 'notGedcom'}`, undefined, 'error');
+      return;
+    }
+    let tree = result.tree;
+    const media: Record<string, Uint8Array> = {};
+    let photosFailed = 0;
+    for (const ph of result.photos) {
+      try {
+        const c = await compressImage(new Blob([ph.bytes as BlobPart]));
+        if (ph.caption) c.photo.caption = ph.caption;
+        media[c.photo.id] = c.bytes;
+        tree = updatePerson(tree, ph.personId, (p) => ({ ...p, photos: [...(p.photos ?? []), c.photo] }));
+      } catch {
+        photosFailed++;
+      }
+    }
+    // Связь с исходным файлом не сохраняем: автосохранение не должно перезаписать .ged форматом .kinmap
+    await openSession({ tree, media, key: null, syncedWithFile: false, handle: null });
+    showImportReport({ ...result.report, photos: result.report.photos - photosFailed, photosFailed });
+  }
+
   async function openFile(file: OpenedFile): Promise<void> {
     setBusy(true);
     try {
+      const isGedcom =
+        !/\.kinmap$/i.test(file.name) && (looksLikeGedcom(file.bytes, file.name) || /\.(zip|gdz)$/i.test(file.name));
+      if (isGedcom) {
+        await importGedcomInput(file);
+        return;
+      }
       const decoded = await decode(file.bytes, file.name);
       if (!decoded) return;
 

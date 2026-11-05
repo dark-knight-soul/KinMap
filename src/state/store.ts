@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { deriveKey, type EncryptionKey } from '../file/crypto';
 import { serializeTree, type MediaStore } from '../file/format';
+import type { ImportReport } from '../gedcom/import';
 import { fileNameFor, hasWritePermission, saveAs, writeToHandle } from '../file/io';
 import { OpError } from '../model/ops';
 import type { TreeData } from '../model/types';
@@ -60,9 +61,15 @@ export interface AppState {
   notice: Notice | null;
   /** Хранилище браузера недоступно — копии не сохраняются */
   storageBroken: boolean;
+  /** Отчёт о последнем импорте GEDCOM (показывается окном) */
+  importReport: (ImportReport & { photosFailed: number }) | null;
 }
 
-let state: AppState = { session: null, notice: null, storageBroken: false };
+let state: AppState = { session: null, notice: null, storageBroken: false, importReport: null };
+
+export function showImportReport(report: AppState['importReport']): void {
+  setState({ importReport: report });
+}
 const listeners = new Set<() => void>();
 
 export const getState = () => state;

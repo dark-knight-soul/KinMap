@@ -1,0 +1,56 @@
+0 HEAD
+1 SOUR Gramps
+2 VERS 5.2.3
+2 NAME Gramps
+1 DATE 1 NOV 2026
+2 TIME 14:22:05
+1 SUBM @SUBM@
+1 FILE family.ged
+1 COPR Copyright (c) 2026 Example
+1 GEDC
+2 VERS 5.5.1
+2 FORM LINEAGE-LINKED
+1 CHAR UTF-8
+0 @SUBM@ SUBM
+1 NAME Example Researcher
+0 @I0000@ INDI
+1 NAME John /Example/
+2 GIVN John
+2 SURN Example
+1 SEX M
+1 BIRT
+2 TYPE Birth of John Example
+2 DATE 12 MAR 1900
+2 PLAC Springfield
+1 DEAT
+2 DATE @#DJULIAN@ 1 JAN 1960
+1 BURI
+2 DATE 5 JAN 1960
+1 FAMS @F0000@
+1 NOTE @N0000@
+1 CHAN
+2 DATE 1 NOV 2026
+3 TIME 14:20:00
+0 @I0001@ INDI
+1 NAME Mary /Sample/
+1 SEX F
+1 BIRT
+2 DATE FROM 1902 TO 1903
+1 FAMS @F0000@
+0 @I0002@ INDI
+1 NAME Peter /Example/
+1 SEX M
+1 CHR
+2 DATE 2 APR 1925
+1 FAMC @F0000@
+1 ASSO @I0001@
+2 RELA Godmother
+0 @F0000@ FAM
+1 HUSB @I0000@
+1 WIFE @I0001@
+1 CHIL @I0002@
+1 MARR
+2 DATE INT 1924 (around the summer)
+0 @N0000@ NOTE This is a fictional note with a very long text that continues on the next lin
+1 CONC e because GEDCOM 5.5.1 limits line length.
+0 TRLR

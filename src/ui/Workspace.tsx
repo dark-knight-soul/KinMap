@@ -16,6 +16,7 @@ import {
   type Session,
 } from '../state/store';
 import { setView, useView } from '../state/view';
+import { ExportGedcomDialog, ImportReportDialog } from './GedcomDialogs';
 import { IssuesButton, IssuesDialog } from './IssuesView';
 import { KinshipDialog } from './KinshipDialog';
 import { ConfirmDialog } from './Modal';
@@ -30,7 +31,7 @@ import { TreeToolbar } from './tree/TreeToolbar';
 /** Через сколько минут без сохранения в файл показывать напоминание */
 const REMIND_AFTER_MIN = 15;
 
-type DialogName = 'password' | 'snapshots' | 'close' | 'issues' | 'kinship' | null;
+type DialogName = 'password' | 'snapshots' | 'close' | 'issues' | 'kinship' | 'gedcom' | null;
 
 export function Workspace() {
   const { t } = useTranslation();
@@ -141,6 +142,9 @@ export function Workspace() {
                     <button type="button" role="menuitem" onClick={menuAction(() => void saveAsNew())}>
                       {t('toolbar.saveAs')}
                     </button>
+                    <button type="button" role="menuitem" onClick={menuAction(() => setDialog('gedcom'))}>
+                      {t('toolbar.exportGedcom')}
+                    </button>
                     <button type="button" role="menuitem" onClick={menuAction(() => setDialog('password'))}>
                       {session.key ? '🔒 ' : ''}
                       {t('toolbar.password')}
@@ -229,6 +233,8 @@ export function Workspace() {
       {dialog === 'password' && <PasswordDialog onClose={() => setDialog(null)} />}
       {dialog === 'snapshots' && <SnapshotsDialog onClose={() => setDialog(null)} />}
       {dialog === 'issues' && <IssuesDialog onClose={() => setDialog(null)} />}
+      {dialog === 'gedcom' && <ExportGedcomDialog onClose={() => setDialog(null)} />}
+      <ImportReportDialog />
       {dialog === 'kinship' && (
         <KinshipDialog
           initialA={tree.rootPersonId}

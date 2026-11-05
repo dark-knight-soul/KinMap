@@ -8,6 +8,10 @@ import { FILE_EXTENSION, MIME } from './format';
 const PICKER_TYPES: FilePickerAcceptType[] = [
   { description: 'KinMap', accept: { [MIME]: [FILE_EXTENSION] } },
 ];
+// При открытии можно выбрать и GEDCOM (импорт из других программ)
+const OPEN_TYPES: FilePickerAcceptType[] = [
+  { description: 'KinMap, GEDCOM', accept: { [MIME]: [FILE_EXTENSION], 'application/x-gedcom': ['.ged', '.gdz', '.zip'] } },
+];
 
 export function supportsFileAccess(): boolean {
   return typeof window.showSaveFilePicker === 'function' && window.isSecureContext;
@@ -25,7 +29,7 @@ const isAbort = (e: unknown) => e instanceof DOMException && e.name === 'AbortEr
 export async function pickFileToOpen(): Promise<OpenedFile | null> {
   if (supportsFileAccess() && window.showOpenFilePicker) {
     try {
-      const [handle] = await window.showOpenFilePicker({ types: PICKER_TYPES, id: 'kinmap' });
+      const [handle] = await window.showOpenFilePicker({ types: OPEN_TYPES, id: 'kinmap' });
       if (!handle) return null;
       const file = await handle.getFile();
       return { bytes: new Uint8Array(await file.arrayBuffer()), name: file.name, handle };
@@ -41,7 +45,7 @@ function pickWithInput(): Promise<OpenedFile | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = `${FILE_EXTENSION},.json`;
+    input.accept = `${FILE_EXTENSION},.json,.ged,.gdz,.zip`;
     input.addEventListener('change', async () => {
       const file = input.files?.[0];
       resolve(file ? await readFile(file) : null);

@@ -64,6 +64,25 @@ export interface Person {
   photos?: PersonPhoto[];
   /** Замечания проверки, которые человек отметил «это не ошибка» */
   ignoredChecks?: string[];
+  /** Данные из GEDCOM, которые KinMap не показывает, но сохраняет и возвращает при экспорте */
+  gedcom?: GedcomExtra;
+}
+
+/** Узел GEDCOM: тег, значение, ссылка и вложенные узлы */
+export interface GedNode {
+  tag: string;
+  value?: string;
+  xref?: string;
+  children?: GedNode[];
+}
+
+export interface GedcomExtra {
+  /** Исходный идентификатор (I12, F3) — чтобы ссылки в сохранённых полях не сломались */
+  xref?: string;
+  /** Незнакомые поля записи (источники, адреса, свои теги программ…) */
+  extra?: GedNode[];
+  /** Незнакомые подполя событий: BIRT, DEAT, MARR, DIV → узлы (источники, примечания…) */
+  events?: Record<string, GedNode[]>;
 }
 
 /** Обрезка для аватара: квадрат в долях от размеров фото */
@@ -105,6 +124,7 @@ export interface Family {
   marriage?: LifeEvent;
   divorce?: LifeEvent;
   children: FamilyChild[];
+  gedcom?: GedcomExtra;
 }
 
 /** Текущая версия формата данных. Повышаем при несовместимых изменениях + пишем миграцию */
@@ -121,4 +141,6 @@ export interface TreeData {
   families: Record<FamilyId, Family>;
   /** С кого начинать показ древа */
   rootPersonId?: PersonId;
+  /** Записи GEDCOM верхнего уровня, которые KinMap не разбирает (источники, хранилища…) */
+  gedcomRecords?: GedNode[];
 }
