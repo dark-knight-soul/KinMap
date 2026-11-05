@@ -925,3 +925,77 @@ details summary { cursor: pointer; }
   .print-page:last-child { break-after: auto; page-break-after: auto; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+/* ───────────── Этап 8: календарь ───────────── */
+.banner-info { background: color-mix(in srgb, var(--accent) 14%, var(--surface)); color: var(--text); }
+.calendar { flex: 1; overflow-y: auto; padding: 20px 24px 48px; display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+.cal-section h2 { font-size: 1.1rem; margin: 0; }
+.cal-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.cal-head h2 { flex: 1; }
+.cal-month-title { flex: 0 1 auto !important; min-width: 160px; text-align: center; }
+.cal-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.cal-item {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.cal-item.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.cal-when { display: flex; flex-direction: column; }
+.cal-who {
+  font: inherit;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+.cal-who > span { display: flex; flex-direction: column; min-width: 0; }
+.cal-names { font-weight: 600; }
+.cal-jubilee { color: var(--accent); font-weight: 600; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal-weekday { text-align: center; font-size: 0.8rem; color: var(--muted); text-transform: capitalize; padding: 2px 0; }
+.cal-cell {
+  min-height: 78px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.cal-cell.empty { background: transparent; border-color: transparent; }
+.cal-cell.is-today { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.cal-day { font-size: 0.8rem; color: var(--muted); }
+.cal-cell.is-today .cal-day { color: var(--accent); font-weight: 700; }
+.cal-chip {
+  font: inherit;
+  font-size: 0.75rem;
+  text-align: left;
+  border: none;
+  border-radius: 4px;
+  padding: 1px 4px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cal-chip.jubilee { background: color-mix(in srgb, #e0a100 30%, transparent); font-weight: 600; }
+@media (max-width: 760px) {
+  .calendar { padding: 16px; }
+  .cal-item { grid-template-columns: 1fr; gap: 4px; }
+  .cal-cell { min-height: 54px; }
+  .cal-chip { font-size: 0.65rem; }
+}

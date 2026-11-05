@@ -110,8 +110,8 @@ export async function hasWritePermission(handle: FileSystemFileHandle, request =
   return false;
 }
 
-export function download(bytes: Uint8Array, name: string): void {
-  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: MIME }));
+export function download(bytes: Uint8Array, name: string, type: string = MIME): void {
+  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type }));
   const a = document.createElement('a');
   a.href = url;
   a.download = name;

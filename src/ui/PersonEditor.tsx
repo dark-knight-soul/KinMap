@@ -59,7 +59,7 @@ export function PersonEditor() {
   return (
     <section className="editor" key={id}>
       <button type="button" className="btn btn-ghost back-btn" onClick={() => select(undefined)}>
-        {view.mode === 'tree' ? t('tree.back') : t('people.back')}
+        {view.mode === 'tree' ? t('tree.back') : view.mode === 'calendar' ? t('calendar.back') : t('people.back')}
       </button>
 
       <div className="editor-head">

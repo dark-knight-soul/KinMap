@@ -17,6 +17,7 @@ import {
 } from '../state/store';
 import { setView, useView } from '../state/view';
 import { ExportGedcomDialog, ImportReportDialog } from './GedcomDialogs';
+import { CalendarView, TodayBanner } from './calendar/CalendarView';
 import { PrintDialog } from './print/PrintDialog';
 import { IssuesButton, IssuesDialog } from './IssuesView';
 import { KinshipDialog } from './KinshipDialog';
@@ -198,9 +199,11 @@ export function Workspace() {
         </div>
       )}
 
+      {hasPeople && <TodayBanner />}
+
       <div className="view-bar">
         <div className="segmented" role="tablist" aria-label={t('view.label')}>
-          {(['tree', 'list'] as const).map((m) => (
+          {(['tree', 'list', 'calendar'] as const).map((m) => (
             <button
               key={m}
               type="button"
@@ -240,8 +243,14 @@ export function Workspace() {
       ) : (
         <div className={session.selectedId ? 'workspace tree-mode has-selection' : 'workspace tree-mode'}>
           <div className="chart-area">
-            <TreeChart />
-            <p className="chart-hint muted small">{t('tree.hint')}</p>
+            {view.mode === 'calendar' ? (
+              <CalendarView />
+            ) : (
+              <>
+                <TreeChart />
+                <p className="chart-hint muted small">{t('tree.hint')}</p>
+              </>
+            )}
           </div>
           {session.selectedId && <PersonEditor />}
         </div>

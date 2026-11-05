@@ -4,7 +4,7 @@ import { readSetting, writeSetting } from '../lib/storage';
 // Настройки вида: древо или список, тип схемы, сколько поколений показывать.
 // Это настройки интерфейса (не данные древа) — хранятся в браузере, в файл не попадают.
 
-export type ViewMode = 'tree' | 'list';
+export type ViewMode = 'tree' | 'list' | 'calendar';
 export type ChartKind = 'family' | 'ancestors' | 'descendants' | 'fan';
 
 export interface ViewState {
@@ -26,7 +26,7 @@ function load(): ViewState {
     const clamp = (n: unknown, d: number) =>
       typeof n === 'number' && Number.isInteger(n) ? Math.min(GEN_MAX, Math.max(GEN_MIN, n)) : d;
     return {
-      mode: raw.mode === 'list' ? 'list' : 'tree',
+      mode: raw.mode === 'list' || raw.mode === 'calendar' ? raw.mode : 'tree',
       chart: (['family', 'ancestors', 'descendants', 'fan'] as const).find((c) => c === raw.chart) ?? DEFAULTS.chart,
       up: clamp(raw.up, DEFAULTS.up),
       down: clamp(raw.down, DEFAULTS.down),
