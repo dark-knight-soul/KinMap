@@ -1,3 +1,4 @@
+import { Maximize2, Minus, Plus } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Bounds } from '../../layout/types';
@@ -43,11 +44,14 @@ export function PanZoom({
   center,
   children,
   label,
+  onBackgroundClick,
 }: {
   bounds: Bounds;
   center: CenterRequest | null;
   children: (vp: Viewport) => ReactNode;
   label: string;
+  /** Щелчок по пустому месту (не по карточке и без перетаскивания) */
+  onBackgroundClick?: () => void;
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
@@ -242,18 +246,25 @@ export function PanZoom({
       }}
       onKeyDown={onKeyDown}
     >
-      <svg className="canvas-svg" width={size.w} height={size.h}>
+      <svg
+        className="canvas-svg"
+        width={size.w}
+        height={size.h}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onBackgroundClick?.();
+        }}
+      >
         <g transform={`translate(${tf.x} ${tf.y}) scale(${tf.k})`}>{children(viewport)}</g>
       </svg>
       <div className="zoom-controls" onPointerDown={(e) => e.stopPropagation()}>
         <button type="button" className="icon-btn" onClick={() => zoomAt(1.25, size.w / 2, size.h / 2)} title={t('zoom.in')} aria-label={t('zoom.in')}>
-          +
+          <Plus size={18} strokeWidth={1.75} />
         </button>
         <button type="button" className="icon-btn" onClick={() => zoomAt(0.8, size.w / 2, size.h / 2)} title={t('zoom.out')} aria-label={t('zoom.out')}>
-          −
+          <Minus size={18} strokeWidth={1.75} />
         </button>
         <button type="button" className="icon-btn" onClick={fit} title={t('zoom.fit')} aria-label={t('zoom.fit')}>
-          ⤢
+          <Maximize2 size={16} strokeWidth={1.75} />
         </button>
         <span className="zoom-level">{Math.round(tf.k * 100)}%</span>
       </div>

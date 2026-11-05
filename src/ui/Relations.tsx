@@ -1,33 +1,15 @@
-import { useState } from 'react';
+import { Plus, Unlink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import {
-  addPartnerToFamily,
-  addPerson,
-  linkChild,
-  linkParent,
-  linkPartners,
-  setChildRelation,
-  unlinkChild,
-  unlinkParent,
-  unlinkPartner,
-  updateFamily,
-} from '../model/ops';
-import { childrenOf, parentsOf, siblingsOf, spousesOf, unionsOf } from '../model/queries';
-import type { ChildRelation, Family, Person, PersonId, Sex, TreeData, UnionStatus } from '../model/types';
+import { setChildRelation, unlinkChild, unlinkParent, unlinkPartner, updateFamily } from '../model/ops';
+import { parentsOf, siblingsOf, unionsOf } from '../model/queries';
+import type { ChildRelation, Family, Person, UnionStatus } from '../model/types';
 import { apply, select, useApp } from '../state/store';
 import { DateField } from './DateField';
 import { lifespan, useNameOf } from './format';
-import { PersonPicker, type PickChoice } from './PersonPicker';
+import { Avatar } from './media';
+import { useAddRelative } from './useAddRelative';
 
-// Связи человека: родители, союзы с детьми, братья и сёстры.
-// Добавление идёт через окно выбора: новый человек или уже есть в древе.
-
-interface PickerState {
-  title: string;
-  defaults: { sex?: Sex; surname?: string };
-  exclude: PersonId[];
-  link: (tree: TreeData, otherId: PersonId) => TreeData;
-}
+// Родные человека: родители, союзы с детьми, братья и сёстры.
 
 const RELATIONS: ChildRelation[] = ['birth', 'adopted', 'foster', 'unknown'];
 const STATUSES: UnionStatus[] = ['married', 'partners', 'divorced', 'widowed', 'unknown'];
@@ -49,7 +31,7 @@ export function Relations({ person }: { person: Person }) {
   const { t } = useTranslation();
   const tree = useApp((s) => s.session!.history.present);
   const nameOf = useNameOf();
-  const [picker, setPicker] = useState<PickerState | null>(null);
+  const { add, dialog } = useAddRelative();
   const id = person.id;
 
   const parents = parentsOf(tree, id);
@@ -58,82 +40,15 @@ export function Relations({ person }: { person: Person }) {
   const birthParents = parents.filter((p) => p.relation === 'birth');
   const hasFather = birthParents.some((p) => p.person.sex === 'M');
   const hasMother = birthParents.some((p) => p.person.sex === 'F');
-  const surname = person.names.surname;
-
-  const onPick = (choice: PickChoice) => {
-    if (!picker) return;
-    const p = picker;
-    setPicker(null);
-    apply((tr) => {
-      let next = tr;
-      let otherId: PersonId;
-      if ('create' in choice) {
-        const r = addPerson(next, choice.create);
-        next = r.tree;
-        otherId = r.id;
-      } else {
-        otherId = choice.existing;
-      }
-      return p.link(next, otherId);
-    });
-  };
-
-  const openPicker = (title: string, defaults: PickerState['defaults'], exclude: PersonId[], link: PickerState['link']) =>
-    setPicker({ title, defaults, exclude: [id, ...exclude], link });
-
-  const addParent = (sex: Sex) =>
-    openPicker(
-      t(sex === 'M' ? 'picker.titleFather' : sex === 'F' ? 'picker.titleMother' : 'picker.titleParent'),
-      { sex, surname: sex === 'M' ? surname : undefined },
-      parents.map((p) => p.person.id),
-      (tr, pid) => linkParent(tr, id, pid).tree,
-    );
-
-  const addSpouse = () =>
-    openPicker(
-      t('picker.titleSpouse'),
-      { sex: person.sex === 'M' ? 'F' : person.sex === 'F' ? 'M' : undefined },
-      spousesOf(tree, id).map((s) => s.person.id),
-      (tr, pid) => linkPartners(tr, id, pid).tree,
-    );
-
-  // Фамилия ребёнка по умолчанию — по отцу
-  const childSurname = (fatherCandidate?: Person) =>
-    person.sex === 'M' ? surname : fatherCandidate?.sex === 'M' ? fatherCandidate.names.surname : surname;
-
-  const addChildTo = (familyId: string, partner?: Person) =>
-    openPicker(
-      t('picker.titleChild'),
-      { surname: childSurname(partner) },
-      childrenOf(tree, id).map((c) => c.person.id),
-      (tr, pid) => linkChild(tr, id, pid, { familyId }).tree,
-    );
-
-  const addChildOther = () =>
-    openPicker(
-      t('picker.titleChild'),
-      { surname: childSurname() },
-      childrenOf(tree, id).map((c) => c.person.id),
-      (tr, pid) => {
-        const single = unionsOf(tr, id).find((f) => f.partners.length === 1);
-        return single ? linkChild(tr, id, pid, { familyId: single.id }).tree : linkParent(tr, pid, id).tree;
-      },
-    );
-
-  const setSecondParent = (familyId: string) =>
-    openPicker(
-      t('picker.titleSecondParent'),
-      { sex: person.sex === 'M' ? 'F' : person.sex === 'F' ? 'M' : undefined },
-      [],
-      (tr, pid) => addPartnerToFamily(tr, familyId, pid),
-    );
 
   // Обычные функции, а не компоненты: иначе при каждом изменении они пересоздаются и теряют фокус
-  const personLink = (p: Person) => (
-    <button type="button" className="link-btn person-link" onClick={() => select(p.id)}>
-      <span className={`sex-dot sex-${p.sex}`} aria-hidden="true" />
-      {nameOf(p)}
-      {lifespan(p) && <span className="muted small"> {lifespan(p)}</span>}
+  const personLink = (p: Person, extra?: string) => (
+    <button type="button" className="rel-person" onClick={() => select(p.id)}>
+      <Avatar person={p} size={30} />
+      <span className="rel-person-text">
+        <span>{nameOf(p)}</span>
+        <span className="muted small">{[extra, lifespan(p)].filter(Boolean).join(' · ')}</span>
+      </span>
     </button>
   );
 
@@ -153,14 +68,14 @@ export function Relations({ person }: { person: Person }) {
   );
 
   const unlinkButton = (onClick: () => void, label?: string) => (
-    <button
-      type="button"
-      className="icon-btn icon-btn-small"
-      onClick={onClick}
-      title={label ?? t('relations.unlink')}
-      aria-label={label ?? t('relations.unlink')}
-    >
-      ×
+    <button type="button" className="icon-btn icon-btn-small" onClick={onClick} title={label ?? t('relations.unlink')} aria-label={label ?? t('relations.unlink')}>
+      <Unlink size={15} strokeWidth={1.75} />
+    </button>
+  );
+
+  const addButton = (label: string, onClick: () => void) => (
+    <button type="button" className="chip-btn" onClick={onClick}>
+      <Plus size={14} strokeWidth={2} /> {label}
     </button>
   );
 
@@ -178,146 +93,109 @@ export function Relations({ person }: { person: Person }) {
           ))}
         </ul>
         <div className="rel-actions">
-          {!hasFather && (
-            <button type="button" className="btn btn-small" onClick={() => addParent('M')}>
-              {t('relations.addFather')}
-            </button>
-          )}
-          {!hasMother && (
-            <button type="button" className="btn btn-small" onClick={() => addParent('F')}>
-              {t('relations.addMother')}
-            </button>
-          )}
-          {birthParents.length < 2 && (
-            <button type="button" className="btn btn-small btn-ghost" onClick={() => addParent('U')}>
-              {t('relations.addParent')}
-            </button>
-          )}
+          {!hasFather && birthParents.length < 2 && addButton(t('relations.father'), () => add(id, 'father'))}
+          {!hasMother && birthParents.length < 2 && addButton(t('relations.mother'), () => add(id, 'mother'))}
         </div>
       </section>
 
       <section className="rel-section">
         <h3>{t('relations.families')}</h3>
-        {unions.map((f) => {
-          const partnerId = f.partners.find((p) => p !== id);
-          const partner = partnerId ? tree.people[partnerId] : undefined;
-          return (
-            <div key={f.id} className="union-card">
-              <div className="union-head">
-                {partner ? (
-                  <>
-                    <span className="muted small">{t('relations.spouse')}:</span>
-                    {personLink(partner)}
-                    <select
-                      className="select-small"
-                      aria-label={t('relations.status')}
-                      value={f.status}
-                      onChange={(e) =>
-                        apply((tr) => updateFamily(tr, f.id, (x) => ({ ...x, status: e.target.value as UnionStatus })))
-                      }
-                    >
-                      {STATUSES.map((s) => (
-                        <option key={s} value={s}>
-                          {t(`relations.${STATUS_KEY[s]}`)}
-                        </option>
-                      ))}
-                    </select>
-                    {unlinkButton(() => apply((tr) => unlinkPartner(tr, f.id, partner.id)), t('relations.unlinkSpouse'))}
-                  </>
-                ) : (
-                  <>
-                    <span className="muted">{t('relations.noSpouse')}</span>
-                    <button type="button" className="btn btn-small btn-ghost" onClick={() => setSecondParent(f.id)}>
-                      {t('relations.setSecondParent')}
-                    </button>
-                  </>
-                )}
-              </div>
-              {partner && (
-                <div className="union-date">
-                  <DateField
-                    id={`field-marriage-${f.id}`}
-                    label={t('relations.marriageDate')}
-                    value={f.marriage?.date}
-                    onCommit={(date) =>
-                      apply((tr) =>
-                        updateFamily(tr, f.id, (x) => {
-                          const marriage = { ...x.marriage, date };
-                          if (!date) delete marriage.date;
-                          const next: Family = { ...x, marriage };
-                          if (!marriage.date && !marriage.place) delete next.marriage;
-                          return next;
-                        }),
-                      )
-                    }
-                  />
-                </div>
-              )}
-              <ul className="rel-list">
-                {f.children.map((c) => {
-                  const child = tree.people[c.id];
-                  return child ? (
-                    <li key={c.id} className="rel-row">
-                      {personLink(child)}
-                      {relationSelect(f.id, c.id, c.relation)}
-                      {unlinkButton(() => apply((tr) => unlinkChild(tr, f.id, c.id)))}
-                    </li>
-                  ) : null;
-                })}
-              </ul>
-              <button type="button" className="btn btn-small" onClick={() => addChildTo(f.id, partner)}>
-                {t('relations.addChild')}
-              </button>
-            </div>
-          );
-        })}
+        {unions.map((f) => unionCard(f))}
         <div className="rel-actions">
-          <button type="button" className="btn btn-small" onClick={addSpouse}>
-            {t('relations.addSpouse')}
-          </button>
-          {!unions.some((f) => f.partners.length === 1) && (
-            <button type="button" className="btn btn-small btn-ghost" onClick={addChildOther}>
-              {t('relations.addChildOther')}
-            </button>
-          )}
+          {addButton(t('relations.spouse'), () => add(id, 'spouse'))}
+          {!unions.some((f) => f.partners.length === 1) && addButton(t('relations.childOther'), () => add(id, 'child'))}
         </div>
       </section>
 
-      {(siblings.full.length > 0 || siblings.half.length > 0) && (
-        <section className="rel-section">
-          <h3>{t('relations.siblings')}</h3>
-          <ul className="rel-list">
-            {siblings.full.map((p) => (
-              <li key={p.id} className="rel-row">
-                {personLink(p)}
-              </li>
-            ))}
-          </ul>
-          {siblings.half.length > 0 && (
-            <>
-              <h4 className="muted small">{t('relations.halfSiblings')}</h4>
-              <ul className="rel-list">
-                {siblings.half.map((p) => (
-                  <li key={p.id} className="rel-row">
-                    {personLink(p)}
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </section>
-      )}
+      <section className="rel-section">
+        <h3>{t('relations.siblings')}</h3>
+        <ul className="rel-list">
+          {siblings.full.map((p) => (
+            <li key={p.id} className="rel-row">
+              {personLink(p)}
+            </li>
+          ))}
+          {siblings.half.map((p) => (
+            <li key={p.id} className="rel-row">
+              {personLink(p, t('relations.halfShort'))}
+            </li>
+          ))}
+        </ul>
+        <div className="rel-actions">{addButton(t('relations.sibling'), () => add(id, 'sibling'))}</div>
+      </section>
 
-      {picker && (
-        <PersonPicker
-          title={picker.title}
-          defaults={picker.defaults}
-          exclude={picker.exclude}
-          onPick={onPick}
-          onClose={() => setPicker(null)}
-        />
-      )}
+      {dialog}
     </div>
   );
-}
 
+  // Обычная функция (не компонент) — см. комментарий выше про потерю фокуса
+  function unionCard(f: Family) {
+    const personId = id;
+    const partnerId = f.partners.find((p) => p !== personId);
+    const partner = partnerId ? tree.people[partnerId] : undefined;
+    return (
+      <div className="union-card" key={f.id}>
+        <div className="union-head">
+          {partner ? (
+            <>
+              {personLink(partner)}
+              <select
+                className="select-small"
+                aria-label={t('relations.status')}
+                value={f.status}
+                onChange={(e) => apply((tr) => updateFamily(tr, f.id, (x) => ({ ...x, status: e.target.value as UnionStatus })))}
+              >
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {t(`relations.${STATUS_KEY[s]}`)}
+                  </option>
+                ))}
+              </select>
+              {unlinkButton(() => apply((tr) => unlinkPartner(tr, f.id, partner.id)), t('relations.unlinkSpouse'))}
+            </>
+          ) : (
+            <>
+              <span className="muted">{t('relations.noSpouse')}</span>
+              {addButton(t('relations.setSecondParent'), () => add(personId, { secondParent: f.id }))}
+            </>
+          )}
+        </div>
+        {partner && (
+          <div className="union-date">
+            <DateField
+              id={`field-marriage-${f.id}`}
+              label={t('relations.marriageDate')}
+              value={f.marriage?.date}
+              onCommit={(date) =>
+                apply((tr) =>
+                  updateFamily(tr, f.id, (x) => {
+                    const marriage = { ...x.marriage, date };
+                    if (!date) delete marriage.date;
+                    const next: Family = { ...x, marriage };
+                    if (!marriage.date && !marriage.place) delete next.marriage;
+                    return next;
+                  }),
+                )
+              }
+            />
+          </div>
+        )}
+        {f.children.length > 0 && (
+          <ul className="rel-list rel-children">
+            {f.children.map((c) => {
+              const child = tree.people[c.id];
+              return child ? (
+                <li key={c.id} className="rel-row">
+                  {personLink(child)}
+                  {relationSelect(f.id, c.id, c.relation)}
+                  {unlinkButton(() => apply((tr) => unlinkChild(tr, f.id, c.id)))}
+                </li>
+              ) : null;
+            })}
+          </ul>
+        )}
+        <div className="rel-actions">{addButton(t('relations.child'), () => add(personId, { childIn: f.id }))}</div>
+      </div>
+    );
+  }
+}

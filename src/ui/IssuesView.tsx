@@ -1,3 +1,4 @@
+import { OctagonExclamationPoint, TriangleExclamationPoint } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { computeIssues, issuesOf, type Issue } from '../model/checks';
 import { updatePerson } from '../model/ops';
@@ -38,7 +39,7 @@ export function PersonIssues({ personId }: { personId: string }) {
       <ul>
         {issues.map((iss) => (
           <li key={iss.key} className={`issue issue-${iss.severity}`}>
-            <span>{iss.severity === 'error' ? '⛔' : '⚠'} {text(tree, iss)}</span>
+            <span className="issue-text">{iss.severity === 'error' ? <OctagonExclamationPoint size={15} /> : <TriangleExclamationPoint size={15} />} {text(tree, iss)}</span>
             <button type="button" className="link-btn small" onClick={() => ignore(iss)}>
               {t('checks.ignore')}
             </button>
@@ -58,7 +59,7 @@ export function IssuesButton({ onClick }: { onClick: () => void }) {
   const hasErrors = issues.some((i) => i.severity === 'error');
   return (
     <button type="button" className={hasErrors ? 'btn btn-small issues-btn has-errors' : 'btn btn-small issues-btn'} onClick={onClick}>
-      ⚠ {t('checks.count', { count: issues.length })}
+      <TriangleExclamationPoint size={15} strokeWidth={1.75} /> <span className="seg-label">{t('checks.count', { count: issues.length })}</span><span className="count-badge">{issues.length}</span>
     </button>
   );
 }

@@ -1,3 +1,4 @@
+import { Lock } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { serializeTree } from '../file/format';
@@ -56,7 +57,7 @@ export function PasswordDialog({ onClose }: { onClose: () => void }) {
     <Modal title={t('password.title')} onClose={onClose}>
       {mode === 'view' ? (
         <div className="form">
-          <p>🔒 {t('password.enabled')}</p>
+          <p className="with-icon"><Lock size={16} /> {t('password.enabled')}</p>
           <div className="stack">
             <button type="button" className="btn" onClick={() => setMode('form')}>
               {t('password.change')}

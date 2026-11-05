@@ -1,3 +1,4 @@
+import { ArrowLeftRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { bloodRelations, findKinship } from '../model/kinship';
@@ -53,7 +54,7 @@ export function KinshipDialog({ initialA, initialB, onClose }: { initialA?: Pers
           title={t('kin.swap')}
           aria-label={t('kin.swap')}
         >
-          ⇄
+          <ArrowLeftRight size={18} strokeWidth={1.75} />
         </button>
         <PersonSelect tree={tree} label={t('kin.b')} value={b} onChange={setB} />
       </div>

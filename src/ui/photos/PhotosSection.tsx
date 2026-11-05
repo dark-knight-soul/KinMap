@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { useRef, useState, type DragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { compressImage, ImageError } from '../../file/images';
@@ -153,7 +154,7 @@ function PhotoViewer({
               onClick={() => onIndex((index - 1 + photos.length) % photos.length)}
               aria-label="←"
             >
-              ‹
+              <ChevronLeft size={22} />
             </button>
             <button
               type="button"
@@ -161,7 +162,7 @@ function PhotoViewer({
               onClick={() => onIndex((index + 1) % photos.length)}
               aria-label="→"
             >
-              ›
+              <ChevronRight size={22} />
             </button>
           </>
         )}
@@ -191,7 +192,7 @@ function PhotoViewer({
               onIndex(0);
             }}
           >
-            ★ {t('photos.makeMain')}
+            <Star size={14} /> {t('photos.makeMain')}
           </button>
         ) : (
           <button type="button" className="btn btn-small" onClick={() => setCropping(true)} disabled={!url}>

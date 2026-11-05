@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -39,7 +40,7 @@ export function Modal({ title, onClose, children, footer, wide }: Props) {
       <div className="modal-header">
         <h2>{title}</h2>
         <button type="button" className="icon-btn" onClick={onClose} aria-label={t('common.close')}>
-          ×
+          <X size={18} strokeWidth={1.75} />
         </button>
       </div>
       <div className="modal-body">{children}</div>

@@ -1,3 +1,4 @@
+import { Star, UserPlus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { addPerson } from '../model/ops';
@@ -31,7 +32,7 @@ export function PeopleList() {
           {t('people.title')} <span className="muted">({total})</span>
         </h2>
         <button type="button" className="btn btn-primary btn-small" onClick={() => addEmptyPerson()}>
-          + {t('people.add')}
+          <UserPlus size={15} strokeWidth={1.75} /> {t('people.add')}
         </button>
       </div>
 
@@ -65,10 +66,7 @@ export function PeopleList() {
                   <span className="person-row-name">
                     {nameOf(p)}
                     {p.id === tree.rootPersonId && (
-                      <span className="root-mark" title={t('people.root')}>
-                        {' '}
-                        ★
-                      </span>
+                      <Star size={13} className="root-mark" fill="currentColor" aria-label={t('people.root')} />
                     )}
                   </span>
                   <span className="muted small">{lifespan(p)}</span>

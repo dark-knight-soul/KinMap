@@ -1,3 +1,4 @@
+import { Lock } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { decrypt, decryptWithKey } from '../file/crypto';
@@ -65,7 +66,7 @@ export function SnapshotsDialog({ onClose }: { onClose: () => void }) {
         {items?.map((s) => (
           <li key={s.id} className="rel-row">
             <span className="grow">
-              {s.encrypted && '🔒 '}
+              {s.encrypted && <Lock size={13} className="inline-icon" />}
               {formatDateTime(s.at, i18n.language)}{' '}
               <span className="muted small">· {t('welcome.people', { count: s.peopleCount })}</span>
             </span>

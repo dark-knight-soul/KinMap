@@ -1,0 +1,182 @@
+/* Темы оформления. Тема — набор цветов-переменных на <html data-theme="…">.
+   «Как в системе» — без data-theme: светлая или тёмная по настройке ОС.
+
+   light     — Светлая: тёплый белый, зелёный акцент
+   dark      — Тёмная: графит, мятный акцент
+   parchment — Пергамент: старая бумага, коричневые чернила
+   azure     — Лазурь: светлая голубая
+   midnight  — Полночь: тёмно-синяя с золотом
+*/
+
+/* ── Светлая (по умолчанию) ── */
+:root,
+:root[data-theme='light'] {
+  --bg: #f6f5f1;
+  --surface: #ffffff;
+  --surface-2: #f0eee8;
+  --text: #1d2420;
+  --muted: #69716b;
+  --border: #e2ded4;
+  --accent: #2f7d5b;
+  --accent-text: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  --danger: #b3261e;
+  --warn-bg: #fff4d6;
+  --warn-text: #6b4b00;
+  --ok: #2f7d5b;
+  --sex-m: #4a7fc1;
+  --sex-f: #c45a86;
+  --sex-u: #8a8f8b;
+  --hover: rgb(0 0 0 / 0.045);
+  --line: #a7aea8;
+  --card-focus: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  --canvas-bg: var(--bg);
+  --canvas-dot: color-mix(in srgb, var(--border) 80%, transparent);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 2px 8px rgb(0 0 0 / 0.04);
+  --shadow-lg: 0 8px 28px rgb(0 0 0 / 0.14);
+  --radius: 12px;
+  color-scheme: light;
+}
+
+/* ── Тёмная ── */
+:root[data-theme='dark'] {
+  --bg: #121513;
+  --surface: #1b1f1d;
+  --surface-2: #232825;
+  --text: #e6ebe7;
+  --muted: #95a198;
+  --border: #2d3430;
+  --accent: #5fbf92;
+  --accent-text: #0d1a13;
+  --danger: #ff8a80;
+  --warn-bg: #3a3014;
+  --warn-text: #f5d98b;
+  --ok: #5fbf92;
+  --sex-m: #6f9fe0;
+  --sex-f: #e07fa8;
+  --sex-u: #8d968f;
+  --hover: rgb(255 255 255 / 0.06);
+  --line: #56605a;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 10px 32px rgb(0 0 0 / 0.5);
+  color-scheme: dark;
+}
+
+/* «Как в системе» при тёмной ОС — те же цвета, что у тёмной темы */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #121513;
+    --surface: #1b1f1d;
+    --surface-2: #232825;
+    --text: #e6ebe7;
+    --muted: #95a198;
+    --border: #2d3430;
+    --accent: #5fbf92;
+    --accent-text: #0d1a13;
+    --danger: #ff8a80;
+    --warn-bg: #3a3014;
+    --warn-text: #f5d98b;
+    --ok: #5fbf92;
+    --sex-m: #6f9fe0;
+    --sex-f: #e07fa8;
+    --sex-u: #8d968f;
+    --hover: rgb(255 255 255 / 0.06);
+    --line: #56605a;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 10px 32px rgb(0 0 0 / 0.5);
+    color-scheme: dark;
+  }
+}
+
+/* ── Пергамент: старая бумага и коричневые чернила ── */
+:root[data-theme='parchment'] {
+  --bg: #efe6d2;
+  --surface: #fbf6ea;
+  --surface-2: #f3ead6;
+  --text: #3b2e22;
+  --muted: #7d6a55;
+  --border: #dccdb0;
+  --accent: #8a5a2b;
+  --accent-text: #fff8ec;
+  --danger: #a3341f;
+  --warn-bg: #f6e3b4;
+  --warn-text: #6a4a10;
+  --ok: #5e7a2f;
+  --sex-m: #4f6f8f;
+  --sex-f: #a5566a;
+  --sex-u: #8e8272;
+  --hover: rgb(90 60 20 / 0.06);
+  --line: #b39f80;
+  --shadow: 0 1px 2px rgb(80 50 10 / 0.08), 0 2px 8px rgb(80 50 10 / 0.06);
+  --shadow-lg: 0 8px 28px rgb(80 50 10 / 0.18);
+  color-scheme: light;
+}
+
+/* ── Лазурь: светлая голубая ── */
+:root[data-theme='azure'] {
+  --bg: #f1f5fa;
+  --surface: #ffffff;
+  --surface-2: #e9eff7;
+  --text: #17212e;
+  --muted: #5f6e80;
+  --border: #d9e2ee;
+  --accent: #2563c9;
+  --accent-text: #ffffff;
+  --danger: #c0262d;
+  --warn-bg: #fff2d2;
+  --warn-text: #6b4b00;
+  --ok: #1f8a5b;
+  --sex-m: #3b7bd8;
+  --sex-f: #d0568d;
+  --sex-u: #8794a5;
+  --hover: rgb(20 60 120 / 0.05);
+  --line: #a3b2c6;
+  --shadow: 0 1px 2px rgb(20 40 80 / 0.06), 0 2px 8px rgb(20 40 80 / 0.05);
+  --shadow-lg: 0 8px 28px rgb(20 40 80 / 0.16);
+  color-scheme: light;
+}
+
+/* ── Полночь: тёмно-синяя с золотом ── */
+:root[data-theme='midnight'] {
+  --bg: #0e1424;
+  --surface: #161e33;
+  --surface-2: #1d2740;
+  --text: #e8ecf6;
+  --muted: #95a1bd;
+  --border: #27324d;
+  --accent: #e2b55a;
+  --accent-text: #1a1406;
+  --danger: #ff8f86;
+  --warn-bg: #3b3115;
+  --warn-text: #f3d690;
+  --ok: #7bd0a0;
+  --sex-m: #7aa7f0;
+  --sex-f: #ee8fb8;
+  --sex-u: #8f9ab3;
+  --hover: rgb(255 255 255 / 0.06);
+  --line: #4a5878;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.45);
+  --shadow-lg: 0 10px 32px rgb(0 0 0 / 0.55);
+  color-scheme: dark;
+}
+
+/* ── Печать: на бумаге всегда светлые цвета, какая бы тема ни была выбрана ── */
+@media print {
+  :root,
+  :root[data-theme] {
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #f4f4f4;
+    --text: #1d2420;
+    --muted: #5d665f;
+    --border: #b9b4a8;
+    --accent: #2f7d5b;
+    --accent-text: #ffffff;
+    --sex-m: #4a7fc1;
+    --sex-f: #c45a86;
+    --sex-u: #8a8f8b;
+    --line: #8a938c;
+    --card-focus: #ffffff;
+    color-scheme: light;
+  }
+}

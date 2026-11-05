@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { dismissNotice, useApp } from '../state/store';
 
@@ -14,7 +15,7 @@ export function NoticeToast() {
     >
       <span>{t(notice.key, notice.params)}</span>
       <button type="button" className="icon-btn icon-btn-small" onClick={dismissNotice} aria-label={t('common.close')}>
-        ×
+        <X size={14} />
       </button>
     </div>
   );

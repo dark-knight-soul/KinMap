@@ -4,7 +4,7 @@ import { createDemoTree } from '../model/demo';
 import { openSession, select } from '../state/store';
 import { setView } from '../state/view';
 import { parseDeepLink, type DeepLink } from './deeplinkParse';
-import { writeSetting } from './storage';
+import { setThemeFromLink } from './theme';
 
 // Ссылки вида KinMap.html#demo&chart=fan&lang=en — открыть пример сразу.
 // Нужны для README («посмотреть пример») и для снимков экрана.
@@ -14,10 +14,7 @@ import { writeSetting } from './storage';
 export function applyDeepLinkSettings(): DeepLink {
   const link = parseDeepLink(window.location.hash);
   if (link.lang && isLanguage(link.lang)) setLanguage(link.lang);
-  if (link.theme) {
-    writeSetting('theme', link.theme);
-    document.documentElement.setAttribute('data-theme', link.theme);
-  }
+  if (link.theme) setThemeFromLink(link.theme);
   if (link.chart || link.mode) setView({ ...(link.chart && { chart: link.chart }), ...(link.mode && { mode: link.mode }) });
   return link;
 }

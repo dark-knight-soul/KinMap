@@ -1,3 +1,4 @@
+import { FolderOpen, Lock, Plus, Sparkles } from 'lucide-react';
 import { useEffect, useState, type DragEvent, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { readFile } from '../file/io';
@@ -46,17 +47,17 @@ export function StartScreen() {
         <p className="welcome-text">{t('welcome.text')}</p>
         <div className="actions">
           <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
-            {t('welcome.create')}
+            <Plus size={18} strokeWidth={2} /> {t('welcome.create')}
           </button>
           <button type="button" className="btn" onClick={() => void flow.pickAndOpen()} disabled={flow.busy}>
-            {t('welcome.open')}
+            <FolderOpen size={18} strokeWidth={1.75} /> {t('welcome.open')}
           </button>
           <button
             type="button"
             className="btn btn-ghost"
             onClick={() => void openSession({ tree: createDemoTree(t('demo.name')), key: null, syncedWithFile: false })}
           >
-            {t('welcome.demo')}
+            <Sparkles size={18} strokeWidth={1.75} /> {t('welcome.demo')}
           </button>
         </div>
         <p className="hint">{t('welcome.dropHint')}</p>
@@ -70,7 +71,7 @@ export function StartScreen() {
               <li key={c.treeId} className="recent-item">
                 <div className="recent-info">
                   <div className="recent-name">
-                    {c.encrypted && <span title={t('welcome.withPassword')}>🔒 </span>}
+                    {c.encrypted && <Lock size={14} className="inline-icon" aria-label={t('welcome.withPassword')} />}
                     {c.name}
                   </div>
                   <div className="muted small">

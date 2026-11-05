@@ -1,3 +1,24 @@
+import {
+  CalendarDays,
+  CircleCheck,
+  CircleExclamationPoint,
+  Ellipsis,
+  FileDown,
+  FilePlus,
+  HardDrive,
+  Keyboard,
+  Link2,
+  List,
+  LoaderCircle,
+  Lock,
+  LogOut,
+  Network,
+  Printer,
+  Redo2,
+  RotateCcwClock,
+  Save,
+  Undo2,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supportsFileAccess } from '../file/io';
@@ -15,16 +36,18 @@ import {
   useApp,
   type Session,
 } from '../state/store';
-import { setView, useView } from '../state/view';
-import { ExportGedcomDialog, ImportReportDialog } from './GedcomDialogs';
+import { openHelp } from '../state/ui';
+import { setView, useView, type ViewMode } from '../state/view';
 import { CalendarView, TodayBanner } from './calendar/CalendarView';
-import { PrintDialog } from './print/PrintDialog';
+import { ExportGedcomDialog, ImportReportDialog } from './GedcomDialogs';
 import { IssuesButton, IssuesDialog } from './IssuesView';
 import { KinshipDialog } from './KinshipDialog';
 import { ConfirmDialog } from './Modal';
+import { CoachHint, FirstPersonDialog } from './Onboarding';
 import { PasswordDialog } from './PasswordDialog';
-import { PeopleList, addEmptyPerson } from './PeopleList';
+import { PeopleList } from './PeopleList';
 import { PersonEditor } from './PersonEditor';
+import { PrintDialog } from './print/PrintDialog';
 import { SnapshotsDialog } from './SnapshotsDialog';
 import { TopBar } from './TopBar';
 import { TreeChart } from './tree/TreeChart';
@@ -33,7 +56,10 @@ import { TreeToolbar } from './tree/TreeToolbar';
 /** Через сколько минут без сохранения в файл показывать напоминание */
 const REMIND_AFTER_MIN = 15;
 
-type DialogName = 'password' | 'snapshots' | 'close' | 'issues' | 'kinship' | 'gedcom' | 'print' | null;
+type DialogName = 'password' | 'snapshots' | 'close' | 'issues' | 'kinship' | 'gedcom' | 'print' | 'first' | null;
+
+const MODE_ICON: Record<ViewMode, typeof Network> = { tree: Network, list: List, calendar: CalendarDays };
+const ICON = { size: 18, strokeWidth: 1.75 } as const;
 
 export function Workspace() {
   const { t } = useTranslation();
@@ -42,16 +68,22 @@ export function Workspace() {
   const tree = session.history.present;
   const view = useView();
   const hasPeople = Object.keys(tree.people).length > 0;
-  const [dialog, setDialog] = useState<DialogName>(null);
+  // Новое пустое древо — сразу спрашиваем «С кого начнём?»
+  const [dialog, setDialog] = useState<DialogName>(() => (hasPeople ? null : 'first'));
   const [menuOpen, setMenuOpen] = useState(false);
   const now = useNow(30_000);
 
   // Горячие клавиши. В полях ввода Ctrl+Z оставляем браузеру (отмена набора текста)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const inField = e.target instanceof Element && !!e.target.closest('input, textarea, select');
+      if (e.key === '?' && !inField && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        openHelp();
+        return;
+      }
       if (!(e.ctrlKey || e.metaKey)) return;
       const key = e.key.toLowerCase();
-      const inField = e.target instanceof Element && !!e.target.closest('input, textarea, select');
       if (key === 's') {
         e.preventDefault();
         void (e.shiftKey ? saveAsNew() : saveNow());
@@ -90,10 +122,20 @@ export function Workspace() {
     closeSession();
   };
 
-  const menuAction = (fn: () => void) => () => {
-    setMenuOpen(false);
-    fn();
-  };
+  const menuItem = (Icon: typeof Save, label: string, fn: () => void, opts: { disabled?: boolean; danger?: boolean } = {}) => (
+    <button
+      type="button"
+      role="menuitem"
+      className={opts.danger ? 'menu-item menu-item-danger' : 'menu-item'}
+      disabled={opts.disabled}
+      onClick={() => {
+        setMenuOpen(false);
+        fn();
+      }}
+    >
+      <Icon size={16} strokeWidth={1.75} /> {label}
+    </button>
+  );
 
   return (
     <div className="workspace-root">
@@ -110,74 +152,43 @@ export function Workspace() {
           />
           <SaveStatus session={session} />
           <div className="toolbar-buttons">
-            <button
-              type="button"
-              className="icon-btn"
-              onClick={undo}
-              disabled={!session.history.past.length}
-              title={t('toolbar.undo')}
-              aria-label={t('toolbar.undo')}
-            >
-              ↶
+            <button type="button" className="icon-btn" onClick={undo} disabled={!session.history.past.length} title={t('toolbar.undo')} aria-label={t('toolbar.undo')}>
+              <Undo2 {...ICON} />
             </button>
-            <button
-              type="button"
-              className="icon-btn"
-              onClick={redo}
-              disabled={!session.history.future.length}
-              title={t('toolbar.redo')}
-              aria-label={t('toolbar.redo')}
-            >
-              ↷
+            <button type="button" className="icon-btn redo-btn" onClick={redo} disabled={!session.history.future.length} title={t('toolbar.redo')} aria-label={t('toolbar.redo')}>
+              <Redo2 {...ICON} />
             </button>
-            <button type="button" className="btn btn-primary" onClick={() => void saveNow()} title={t('toolbar.saveHint')}>
-              {t('toolbar.save')}
+            <button type="button" className="btn btn-primary btn-icon" onClick={() => void saveNow()} title={t('toolbar.saveHint')}>
+              <Save size={16} strokeWidth={2} />
+              <span className="btn-label">{t('toolbar.save')}</span>
             </button>
             <div className="menu">
               <button
                 type="button"
-                className="btn"
+                className="icon-btn"
                 aria-expanded={menuOpen}
+                aria-label={t('toolbar.menu')}
+                title={t('toolbar.menu')}
                 onClick={() => setMenuOpen((v) => !v)}
               >
-                {t('toolbar.menu')} ▾
+                <Ellipsis {...ICON} />
               </button>
               {menuOpen && (
                 <>
                   <div className="menu-backdrop" onClick={() => setMenuOpen(false)} />
                   <div className="menu-list" role="menu">
-                    <button type="button" role="menuitem" onClick={menuAction(() => void saveAsNew())}>
-                      {t('toolbar.saveAs')}
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      disabled={!hasPeople}
-                      onClick={menuAction(() => {
-                        setView({ mode: 'tree' });
-                        setDialog('print');
-                      })}
-                    >
-                      {t('toolbar.print')}
-                    </button>
-                    <button type="button" role="menuitem" onClick={menuAction(() => setDialog('gedcom'))}>
-                      {t('toolbar.exportGedcom')}
-                    </button>
-                    <button type="button" role="menuitem" onClick={menuAction(() => setDialog('password'))}>
-                      {session.key ? '🔒 ' : ''}
-                      {t('toolbar.password')}
-                    </button>
-                    <button type="button" role="menuitem" onClick={menuAction(() => setDialog('snapshots'))}>
-                      {t('toolbar.snapshots')}
-                    </button>
+                    {menuItem(FilePlus, t('toolbar.saveAs'), () => void saveAsNew())}
+                    {menuItem(Printer, t('toolbar.print'), () => {
+                      setView({ mode: 'tree' });
+                      setDialog('print');
+                    }, { disabled: !hasPeople })}
+                    {menuItem(FileDown, t('toolbar.exportGedcom'), () => setDialog('gedcom'))}
                     <hr />
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={menuAction(() => (hasUnsavedFileChanges() ? setDialog('close') : void close()))}
-                    >
-                      {t('toolbar.closeTree')}
-                    </button>
+                    {menuItem(Lock, session.key ? t('toolbar.passwordOn') : t('toolbar.password'), () => setDialog('password'))}
+                    {menuItem(RotateCcwClock, t('toolbar.snapshots'), () => setDialog('snapshots'))}
+                    {menuItem(Keyboard, t('help.title'), openHelp)}
+                    <hr />
+                    {menuItem(LogOut, t('toolbar.closeTree'), () => (hasUnsavedFileChanges() ? setDialog('close') : void close()))}
                   </div>
                 </>
               )}
@@ -203,26 +214,34 @@ export function Workspace() {
 
       <div className="view-bar">
         <div className="segmented" role="tablist" aria-label={t('view.label')}>
-          {(['tree', 'list', 'calendar'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              role="tab"
-              aria-selected={view.mode === m}
-              className={view.mode === m ? 'active' : ''}
-              onClick={() => setView({ mode: m })}
-            >
-              {t(`view.${m}`)}
-            </button>
-          ))}
+          {(['tree', 'list', 'calendar'] as const).map((m) => {
+            const Icon = MODE_ICON[m];
+            return (
+              <button
+                key={m}
+                type="button"
+                role="tab"
+                aria-selected={view.mode === m}
+                className={view.mode === m ? 'active' : ''}
+                onClick={() => setView({ mode: m })}
+                title={t(`view.${m}`)}
+              >
+                <Icon size={16} strokeWidth={1.75} />
+                <span className="seg-label">{t(`view.${m}`)}</span>
+              </button>
+            );
+          })}
         </div>
         {view.mode === 'tree' && hasPeople && <TreeToolbar />}
-        {hasPeople && (
-          <button type="button" className="btn btn-small" onClick={() => setDialog('kinship')}>
-            {t('kin.button')}
-          </button>
-        )}
-        <IssuesButton onClick={() => setDialog('issues')} />
+        <div className="view-bar-end">
+          {hasPeople && (
+            <button type="button" className="btn btn-small btn-ghost" onClick={() => setDialog('kinship')} title={t('kin.title')}>
+              <Link2 size={16} strokeWidth={1.75} />
+              <span className="seg-label">{t('kin.button')}</span>
+            </button>
+          )}
+          <IssuesButton onClick={() => setDialog('issues')} />
+        </div>
       </div>
 
       {view.mode === 'list' ? (
@@ -232,11 +251,11 @@ export function Workspace() {
         </div>
       ) : !hasPeople ? (
         <div className="workspace-empty">
-          <div className="empty">
-            <p>{t('people.empty')}</p>
-            <p className="muted small">{t('people.emptyHint')}</p>
-            <button type="button" className="btn btn-primary" onClick={() => addEmptyPerson()}>
-              {t('people.addFirst')}
+          <div className="empty empty-card">
+            <h2>{t('onboarding.emptyTitle')}</h2>
+            <p className="muted">{t('people.emptyHint')}</p>
+            <button type="button" className="btn btn-primary btn-large" onClick={() => setDialog('first')}>
+              {t('onboarding.start')}
             </button>
           </div>
         </div>
@@ -248,7 +267,7 @@ export function Workspace() {
             ) : (
               <>
                 <TreeChart />
-                <p className="chart-hint muted small">{t('tree.hint')}</p>
+                <CoachHint />
               </>
             )}
           </div>
@@ -256,6 +275,7 @@ export function Workspace() {
         </div>
       )}
 
+      {dialog === 'first' && <FirstPersonDialog onClose={() => setDialog(null)} />}
       {dialog === 'password' && <PasswordDialog onClose={() => setDialog(null)} />}
       {dialog === 'snapshots' && <SnapshotsDialog onClose={() => setDialog(null)} />}
       {dialog === 'issues' && <IssuesDialog onClose={() => setDialog(null)} />}
@@ -300,51 +320,62 @@ export function Workspace() {
   );
 }
 
+/**
+ * Статус сохранения — спокойно и понятно:
+ *  «Сохранено» · «Сохраняется…» · «Только в браузере» (файл ещё не создан) ·
+ *  «Не сохранено в файл» (файл есть, но отстаёт) · «Автосохранение на паузе».
+ */
 function SaveStatus({ session }: { session: Session }) {
   const { t } = useTranslation();
   const name = session.fileName ?? '';
-  let content;
+  const neverSaved = session.fileRevision === -1 && !session.handle && !session.lastFileSaveAt;
+  let icon;
+  let text: string;
+  let hint: string;
+  let cls = 'status';
+  let action: React.ReactNode = null;
+
   if (session.savingToFile) {
-    content = <span className="status">{t('status.saving')}</span>;
+    icon = <LoaderCircle size={15} className="spin" />;
+    text = t('status.saving');
+    hint = text;
   } else if (session.handle && !session.handleWritable) {
-    content = (
-      <span className="status status-warn">
-        {t('status.needsPermission', { name })}{' '}
-        <button type="button" className="link-btn" onClick={() => void resumeFileAccess()}>
-          {t('status.resume')}
-        </button>
-      </span>
+    icon = <CircleExclamationPoint size={15} />;
+    text = t('status.paused');
+    hint = t('status.needsPermission', { name });
+    cls += ' status-warn';
+    action = (
+      <button type="button" className="link-btn" onClick={() => void resumeFileAccess()}>
+        {t('status.resume')}
+      </button>
     );
   } else if (!hasUnsavedFileChanges(session)) {
-    content = (
-      <span className="status status-ok">
-        ✓ {session.handle ? t('status.savedToFile', { name }) : t('status.downloaded', { name })}
-      </span>
-    );
+    icon = <CircleCheck size={15} />;
+    text = t('status.saved');
+    hint = session.handle ? t('status.savedToFile', { name }) : t('status.downloaded', { name });
+    cls += ' status-ok';
+  } else if (neverSaved) {
+    icon = <HardDrive size={15} />;
+    text = t('status.browserOnly');
+    hint = t('status.browserOnlyHint');
+    cls += ' status-muted';
   } else {
-    content = <span className="status status-warn">● {t('status.unsaved')}</span>;
+    icon = <CircleExclamationPoint size={15} />;
+    text = t('status.unsaved');
+    hint = t('status.unsavedHint', { name });
+    cls += ' status-warn';
   }
+
   return (
-    // Подсказка с полным текстом — на узком экране статус обрезается многоточием
-    <div className="save-status" title={statusTitle(session, t)}>
-      {session.key && (
-        <span className="status" title={t('status.locked')} aria-label={t('status.locked')}>
-          🔒
-        </span>
-      )}
-      {content}
+    <div className="save-status" title={hint}>
+      {session.key && <Lock size={14} className="status-lock" aria-label={t('status.locked')} />}
+      <span className={cls}>
+        {icon}
+        <span className="status-text">{text}</span>
+      </span>
+      {action}
     </div>
   );
-}
-
-function statusTitle(session: Session, t: (k: string, o?: Record<string, string>) => string): string {
-  const name = session.fileName ?? '';
-  if (session.savingToFile) return t('status.saving');
-  if (session.handle && !session.handleWritable) return t('status.needsPermission', { name });
-  if (!hasUnsavedFileChanges(session)) {
-    return session.handle ? t('status.savedToFile', { name }) : t('status.downloaded', { name });
-  }
-  return t('status.unsaved');
 }
 
 /** Текущее время, обновляемое раз в interval мс (для напоминаний) */

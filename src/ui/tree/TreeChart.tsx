@@ -8,8 +8,11 @@ import { select, setFocus, useApp } from '../../state/store';
 import { useView, type ChartKind } from '../../state/view';
 import { avatarGeometry } from '../../file/images';
 import { computeIssues } from '../../model/checks';
+import { openContextMenu } from '../../state/ui';
 import { lifespan } from '../format';
 import { urlFor } from '../media';
+import { useAddRelative, type RelativeKind } from '../useAddRelative';
+import { CardContextMenu, QuickAdd } from './CardActions';
 import { PanZoom, type Viewport } from './PanZoom';
 
 // Схема древа: считает раскладку для выбранного вида и рисует карточки и линии.
@@ -29,6 +32,8 @@ export function TreeChart() {
     [tree, view.chart, focus, view.up, view.down],
   );
 
+  const { add, dialog } = useAddRelative();
+
   if (!focus || !layout) return null;
 
   // Центрируем на человеке-центре при смене центра или вида (но не при каждой правке)
@@ -38,16 +43,48 @@ export function TreeChart() {
       : centerOf(layout.chart, focus, `${view.chart}:${focus}`);
 
   return (
-    <PanZoom bounds={layout.bounds} center={center} label={t('tree.canvasLabel')}>
-      {(vp) =>
-        layout.kind === 'fan' ? (
-          <FanContent tree={tree} fan={layout.fan} selectedId={selectedId} />
-        ) : (
-          <CardsContent tree={tree} chart={layout.chart} vp={vp} selectedId={selectedId} focusId={focus} />
-        )
-      }
-    </PanZoom>
+    <>
+      <PanZoom bounds={layout.bounds} center={center} label={t('tree.canvasLabel')} onBackgroundClick={() => select(undefined)}>
+        {(vp) =>
+          layout.kind === 'fan' ? (
+            <FanContent tree={tree} fan={layout.fan} selectedId={selectedId} />
+          ) : (
+            <CardsContent tree={tree} chart={layout.chart} vp={vp} selectedId={selectedId} focusId={focus} onQuickAdd={add} />
+          )
+        }
+      </PanZoom>
+      {dialog}
+      <CardContextMenu onAdd={add} />
+    </>
   );
+}
+
+/** Правая кнопка мыши и долгое нажатие пальцем — меню действий с человеком */
+function contextMenuHandlers(personId: string) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let start: { x: number; y: number } | null = null;
+  const cancel = () => {
+    clearTimeout(timer);
+    start = null;
+  };
+  return {
+    onContextMenu: (e: React.MouseEvent) => {
+      e.preventDefault();
+      openContextMenu({ personId, x: e.clientX, y: e.clientY });
+    },
+    onPointerDown: (e: React.PointerEvent) => {
+      if (e.pointerType !== 'touch') return;
+      start = { x: e.clientX, y: e.clientY };
+      const { clientX, clientY } = e;
+      timer = setTimeout(() => openContextMenu({ personId, x: clientX, y: clientY }), 550);
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      // Палец сдвинулся — это перетаскивание схемы, а не долгое нажатие
+      if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) cancel();
+    },
+    onPointerUp: cancel,
+    onPointerCancel: cancel,
+  };
 }
 
 export type Computed =
@@ -83,6 +120,7 @@ export function CardsContent({
   selectedId,
   focusId,
   print = false,
+  onQuickAdd,
 }: {
   tree: TreeData;
   chart: ChartLayout;
@@ -91,6 +129,8 @@ export function CardsContent({
   focusId: string;
   /** Для печати: без выделения, значков замечаний и упрощения */
   print?: boolean;
+  /** Кнопки «+» вокруг выбранной карточки */
+  onQuickAdd?: (personId: string, kind: RelativeKind) => void;
 }) {
   // Рисуем только то, что попадает в видимую область
   const lines = chart.lines.filter((l) => {
@@ -114,6 +154,8 @@ export function CardsContent({
   const issueIds = useMemo(() => new Set(computeIssues(tree).map((i) => i.personIds[0]!)), [tree]);
   // При сильном отдалении текст не читается — рисуем упрощённые карточки
   const simple = !print && vp.scale < 0.35;
+  // Карточка выбранного человека (основная, не «ссылка») — вокруг неё кнопки «+»
+  const selectedBox = selectedId ? cards.find((c) => c.personId === selectedId && !c.duplicate) : undefined;
 
   return (
     <>
@@ -145,6 +187,7 @@ export function CardsContent({
           />
         );
       })}
+      {!print && onQuickAdd && selectedBox && <QuickAdd box={selectedBox} tree={tree} onAdd={onQuickAdd} scale={vp.scale} />}
     </>
   );
 }
@@ -192,12 +235,13 @@ const Card = memo(function Card({
       transform={`translate(${box.x} ${box.y})`}
       onClick={() => select(person.id)}
       onDoubleClick={() => setFocus(person.id)}
+      {...contextMenuHandlers(person.id)}
       role="button"
       aria-label={title || t('common.unnamed')}
     >
       <title>{box.duplicate ? `${title}\n${t('tree.duplicateHint')}` : title}</title>
-      <rect className="card-bg" width={CARD_W} height={CARD_H} rx={10} />
-      <rect className="card-stripe" width={6} height={CARD_H} rx={3} />
+      <rect className="card-bg" width={CARD_W} height={CARD_H} rx={12} />
+      <rect className="card-stripe" x={0} y={12} width={4} height={CARD_H - 24} rx={2} />
       {!simple && (
         <>
           {photo && photoUrl && (
@@ -283,7 +327,7 @@ export function FanContent({ tree, fan, selectedId }: { tree: TreeData; fan: Ret
           .filter(Boolean)
           .join(' ');
         return (
-          <g key={s.key} className={cls} onClick={() => select(person.id)} onDoubleClick={() => setFocus(person.id)}>
+          <g key={s.key} className={cls} onClick={() => select(person.id)} onDoubleClick={() => setFocus(person.id)} {...contextMenuHandlers(person.id)}>
             <title>{[person.names.given, person.names.patronymic, person.names.surname, lifespan(person)].filter(Boolean).join(' ')}</title>
             <path d={arcPath(s)} className="fan-bg" />
             <g transform={`translate(${rMid * Math.cos(mid)} ${rMid * Math.sin(mid)}) rotate(${rotate})`}>

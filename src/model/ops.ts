@@ -272,6 +272,41 @@ export function addPartnerToFamily(tree: TreeData, familyId: FamilyId, personId:
   return withFamily(tree, { ...f, partners: [...f.partners, personId] });
 }
 
+/**
+ * Добавить брата или сестру: ребёнок той же семьи родителей.
+ * Если родители не указаны — создаётся «семья» без родителей, только из детей
+ * (родителей потом можно добавить — они станут общими).
+ */
+export function linkSibling(tree: TreeData, personId: PersonId, siblingId: PersonId): { tree: TreeData; familyId: FamilyId } {
+  getPerson(tree, personId);
+  getPerson(tree, siblingId);
+  if (personId === siblingId) throw new OpError('self');
+  const own = parentFamiliesOf(tree, personId);
+  const family = own.find((f) => f.children.find((c) => c.id === personId)?.relation === 'birth') ?? own[0];
+
+  if (family) {
+    if (family.children.some((c) => c.id === siblingId)) throw new OpError('alreadyLinked');
+    // У брата не должно стать больше двух родных родителей и он не может быть предком родителей
+    const ids = parentIdsByRelation(tree, siblingId, 'birth');
+    family.partners.forEach((p) => ids.add(p));
+    if (ids.size > 2) throw new OpError('tooManyParents');
+    for (const p of family.partners) if (p === siblingId || isAncestor(tree, siblingId, p)) throw new OpError('cycle');
+    const next = withFamily(tree, { ...family, children: [...family.children, { id: siblingId, relation: 'birth' }] });
+    return { tree: next, familyId: family.id };
+  }
+
+  const created: Family = {
+    id: newFamilyId(),
+    partners: [],
+    status: 'unknown',
+    children: [
+      { id: personId, relation: 'birth' },
+      { id: siblingId, relation: 'birth' },
+    ],
+  };
+  return { tree: withFamily(tree, created), familyId: created.id };
+}
+
 /** Убрать ребёнка из семьи (сам человек остаётся в древе) */
 export function unlinkChild(tree: TreeData, familyId: FamilyId, childId: PersonId): TreeData {
   const f = getFamily(tree, familyId);

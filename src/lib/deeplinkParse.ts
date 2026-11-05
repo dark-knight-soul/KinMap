@@ -10,7 +10,7 @@ export interface DeepLink {
   chart?: ChartKind;
   mode?: ViewMode;
   lang?: string;
-  theme?: 'light' | 'dark';
+  theme?: 'light' | 'dark' | 'parchment' | 'azure' | 'midnight';
   /** Открыть карточку главного человека */
   card: boolean;
 }
@@ -23,7 +23,7 @@ export function parseDeepLink(hash: string): DeepLink {
     chart: CHARTS.find((c) => c === params.get('chart')),
     mode: MODES.find((m) => m === params.get('mode')),
     lang: params.get('lang') ?? undefined,
-    theme: theme === 'light' || theme === 'dark' ? theme : undefined,
+    theme: (['light', 'dark', 'parchment', 'azure', 'midnight'] as const).find((x) => x === theme),
     card: params.has('card'),
   };
 }

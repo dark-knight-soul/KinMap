@@ -1,11 +1,19 @@
+import { ArrowDownFromLine, ArrowUpFromLine, ChevronsDown, ChevronsUp, Fan, Search, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { matchesQuery, sortKey } from '../../model/queries';
 import { setFocus, useApp } from '../../state/store';
 import { GEN_MAX, GEN_MIN, setView, useView, type ChartKind } from '../../state/view';
 import { lifespan, useNameOf } from '../format';
+import { Avatar } from '../media';
 
 const CHARTS: ChartKind[] = ['family', 'ancestors', 'descendants', 'fan'];
+const CHART_ICON: Record<ChartKind, typeof Users> = {
+  family: Users,
+  ancestors: ArrowUpFromLine,
+  descendants: ArrowDownFromLine,
+  fan: Fan,
+};
 const GENS = Array.from({ length: GEN_MAX - GEN_MIN + 1 }, (_, i) => GEN_MIN + i);
 
 // Панель над схемой: вид схемы, сколько поколений, поиск человека.
@@ -18,23 +26,28 @@ export function TreeToolbar() {
   return (
     <div className="tree-toolbar">
       <div className="segmented" role="tablist" aria-label={t('chart.kind')}>
-        {CHARTS.map((c) => (
-          <button
-            key={c}
-            type="button"
-            role="tab"
-            aria-selected={view.chart === c}
-            className={view.chart === c ? 'active' : ''}
-            onClick={() => setView({ chart: c })}
-          >
-            {t(`chart.${c}`)}
-          </button>
-        ))}
+        {CHARTS.map((c) => {
+          const Icon = CHART_ICON[c];
+          return (
+            <button
+              key={c}
+              type="button"
+              role="tab"
+              aria-selected={view.chart === c}
+              className={view.chart === c ? 'active' : ''}
+              onClick={() => setView({ chart: c })}
+              title={t(`chart.${c}`)}
+            >
+              <Icon size={16} strokeWidth={1.75} />
+              <span className="seg-label">{t(`chart.${c}`)}</span>
+            </button>
+          );
+        })}
       </div>
       {showUp && (
-        <label className="control">
-          <span className="control-label">{t('chart.up')}</span>
-          <select value={view.up} onChange={(e) => setView({ up: Number(e.target.value) })}>
+        <label className="gen-control" title={t('chart.up')}>
+          <ChevronsUp size={16} strokeWidth={1.75} aria-hidden="true" />
+          <select value={view.up} aria-label={t('chart.up')} onChange={(e) => setView({ up: Number(e.target.value) })}>
             {GENS.map((g) => (
               <option key={g} value={g}>
                 {g}
@@ -44,9 +57,9 @@ export function TreeToolbar() {
         </label>
       )}
       {showDown && (
-        <label className="control">
-          <span className="control-label">{t('chart.down')}</span>
-          <select value={view.down} onChange={(e) => setView({ down: Number(e.target.value) })}>
+        <label className="gen-control" title={t('chart.downFull')}>
+          <ChevronsDown size={16} strokeWidth={1.75} aria-hidden="true" />
+          <select value={view.down} aria-label={t('chart.downFull')} onChange={(e) => setView({ down: Number(e.target.value) })}>
             {GENS.map((g) => (
               <option key={g} value={g}>
                 {g}
@@ -87,6 +100,7 @@ function PersonSearch() {
 
   return (
     <div className="tree-search">
+      <Search className="search-icon" size={16} strokeWidth={1.75} aria-hidden="true" />
       <input
         type="search"
         value={query}
@@ -109,7 +123,7 @@ function PersonSearch() {
           {results.map((p) => (
             <li key={p.id}>
               <button type="button" className="person-row" onMouseDown={(e) => e.preventDefault()} onClick={() => pick(p.id)}>
-                <span className={`sex-dot sex-${p.sex}`} aria-hidden="true" />
+                <Avatar person={p} size={24} />
                 <span className="person-row-name">{nameOf(p)}</span>
                 <span className="muted small">{lifespan(p)}</span>
               </button>

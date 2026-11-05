@@ -7,6 +7,7 @@ import {
   linkChild,
   linkParent,
   linkPartners,
+  linkSibling,
   removePerson,
   unlinkChild,
   unlinkParent,
@@ -168,6 +169,22 @@ describe('операции с древом', () => {
     tree = unlinkParent(tree, ids.Сын!, ids.Мать!);
     expect(parentsOf(tree, ids.Сын!)).toEqual([]);
     expect(Object.keys(tree.families)).toEqual([f.familyId]);
+  });
+
+  it('брат или сестра: в семью родителей, а без родителей — общая «семья детей»', () => {
+    let { tree, ids } = people(createTree('Т'), 'Я', 'Брат', 'Сестра', 'Мать');
+    // Родителей нет
+    const r = linkSibling(tree, ids.Я!, ids.Брат!);
+    tree = r.tree;
+    expect(siblingsOf(tree, ids.Я!).full.map((p) => p.names.given)).toEqual(['Брат']);
+    // Добавили мать одному — она стала общей
+    tree = linkParent(tree, ids.Я!, ids.Мать!).tree;
+    expect(parentsOf(tree, ids.Брат!).map((p) => p.person.names.given)).toEqual(['Мать']);
+    // Третий ребёнок — в ту же семью
+    tree = linkSibling(tree, ids.Брат!, ids.Сестра!).tree;
+    expect(siblingsOf(tree, ids.Я!).full.map((p) => p.names.given).sort()).toEqual(['Брат', 'Сестра']);
+    expectOpError(() => linkSibling(tree, ids.Я!, ids.Сестра!), 'alreadyLinked');
+    expectOpError(() => linkSibling(tree, ids.Я!, ids.Мать!), 'cycle');
   });
 
   it('updatePerson не даёт поменять id', () => {

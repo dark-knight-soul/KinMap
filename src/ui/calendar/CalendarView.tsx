@@ -1,3 +1,4 @@
+import { Cake, CalendarPlus, ChevronLeft, ChevronRight, Flame, Heart, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { buildIcs } from '../../file/ics';
@@ -19,6 +20,12 @@ const ICON: Record<CalEvent['kind'], string> = {
   wedding: '💍',
   weddingMemorial: '💍',
 };
+
+/** Значок события в интерфейсе (в файле .ics — эмодзи) */
+function EventIcon({ kind }: { kind: CalEvent['kind'] }) {
+  const Icon = kind === 'birthday' ? Cake : kind === 'wedding' || kind === 'weddingMemorial' ? Heart : Flame;
+  return <Icon size={14} strokeWidth={1.75} className={`event-icon event-${kind}`} aria-hidden="true" />;
+}
 
 /** «День рождения · 41 год», «100 лет со дня рождения»… */
 export function useOccurrenceText() {
@@ -63,7 +70,7 @@ export function CalendarView() {
         <div className="cal-head">
           <h2>{t('calendar.upcoming', { days: UPCOMING_DAYS })}</h2>
           <button type="button" className="btn btn-small" onClick={() => setIcsOpen(true)}>
-            📅 {t('calendar.toPhone')}
+            <CalendarPlus size={15} strokeWidth={1.75} /> {t('calendar.toPhone')}
           </button>
         </div>
         {soon.length === 0 ? (
@@ -81,7 +88,7 @@ export function CalendarView() {
                   <span>
                     <span className="cal-names">{namesOf(tree, o)}</span>
                     <span className="small">
-                      {ICON[o.kind]} {text(o)}
+                      <EventIcon kind={o.kind} /> {text(o)}
                       {o.jubilee && <span className="cal-jubilee"> {t('calendar.jubilee')}</span>}
                     </span>
                   </span>
@@ -95,11 +102,11 @@ export function CalendarView() {
       <section className="cal-section">
         <div className="cal-head">
           <button type="button" className="icon-btn" onClick={() => shift(-1)} aria-label={t('calendar.prev')}>
-            ‹
+            <ChevronLeft size={18} strokeWidth={1.75} />
           </button>
           <h2 className="cal-month-title">{monthTitle(i18n.language, month.y, month.m)}</h2>
           <button type="button" className="icon-btn" onClick={() => shift(1)} aria-label={t('calendar.next')}>
-            ›
+            <ChevronRight size={18} strokeWidth={1.75} />
           </button>
           <button type="button" className="btn btn-small btn-ghost" onClick={() => setMonth({ y: today.y, m: today.m })}>
             {t('calendar.thisMonth')}
@@ -170,7 +177,7 @@ function MonthGrid({
                 title={`${namesOf(tree, o)} — ${text(o)}`}
                 onClick={() => select(o.personIds[0])}
               >
-                {ICON[o.kind]} {tree.people[o.personIds[0]!]?.names.given ?? t('common.unnamed')}
+                <EventIcon kind={o.kind} /> {tree.people[o.personIds[0]!]?.names.given ?? t('common.unnamed')}
               </button>
             ))}
             {list.length > 3 && <span className="muted small">+{list.length - 3}</span>}
@@ -203,7 +210,7 @@ export function TodayBanner() {
         {list.map((o, i) => (
           <span key={`${o.kind}-${o.familyId ?? o.personIds[0]}`}>
             {i > 0 && '; '}
-            {ICON[o.kind]}{' '}
+            <EventIcon kind={o.kind} />{' '}
             <button type="button" className="link-btn" onClick={() => select(o.personIds[0])}>
               {namesOf(tree, o)}
             </button>{' '}
@@ -220,7 +227,7 @@ export function TodayBanner() {
           rerender((n) => n + 1);
         }}
       >
-        ×
+        <X size={14} />
       </button>
     </div>
   );

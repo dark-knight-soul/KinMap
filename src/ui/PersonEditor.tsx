@@ -1,23 +1,30 @@
+import { ArrowLeft, Crosshair, Star, Trash, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { removePerson, setRootPerson, updatePerson } from '../model/ops';
-import { isLiving } from '../model/queries';
-import type { LifeEvent, Person, PersonNames, Sex } from '../model/types';
-import { apply, select, setFocus, useApp } from '../state/store';
-import { setView, useView } from '../state/view';
-import { DateField } from './DateField';
-import { lifespan, useDateLocale, useNameOf } from './format';
-import { ConfirmDialog } from './Modal';
 import { findKinship } from '../model/kinship';
 import { nameKinship } from '../model/kinshipTerms';
+import { removePerson, setRootPerson, updatePerson } from '../model/ops';
+import { childrenOf, isLiving, parentsOf, siblingsOf, spousesOf } from '../model/queries';
+import type { LifeEvent, Person, PersonNames } from '../model/types';
+import { apply, select, setFocus, useApp } from '../state/store';
+import { setView, useView } from '../state/view';
+import { Segmented, SexToggle } from './controls';
+import { DateField } from './DateField';
+import { lifespan, useDateLocale, useNameOf } from './format';
 import { PersonIssues } from './IssuesView';
 import { KinshipDialog } from './KinshipDialog';
 import { Avatar } from './media';
+import { ConfirmDialog } from './Modal';
 import { PhotosSection } from './photos/PhotosSection';
 import { Relations } from './Relations';
 
-// Карточка человека: имя, пол, даты, заметки и связи.
+// Карточка человека: вкладки «Основное», «Родные», «Фото», «О жизни».
 // Поля сразу пишут изменения в древо; быстрые правки одного поля — один шаг отмены.
+
+type Tab = 'main' | 'relatives' | 'photos' | 'life';
+// Последняя открытая вкладка — при переходе к другому человеку остаёмся на ней
+let lastTab: Tab = 'main';
+
 export function PersonEditor() {
   const { t } = useTranslation();
   const tree = useApp((s) => s.session!.history.present);
@@ -26,6 +33,12 @@ export function PersonEditor() {
   const view = useView();
   const nameOf = useNameOf();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [tab, setTabState] = useState<Tab>(lastTab);
+  const [showBirthSurname, setShowBirthSurname] = useState(false);
+  const setTab = (x: Tab) => {
+    lastTab = x;
+    setTabState(x);
+  };
 
   const person = selectedId ? tree.people[selectedId] : undefined;
   if (!person) {
@@ -54,46 +67,72 @@ export function PersonEditor() {
     }, field);
 
   const autoLiving = isLiving({ ...person, living: undefined });
+  const living = person.living ?? autoLiving;
+  const showDeath = !living || !!person.death;
   const isRoot = tree.rootPersonId === id;
+  const relativesCount =
+    parentsOf(tree, id).length + spousesOf(tree, id).length + childrenOf(tree, id).length + siblingsOf(tree, id).full.length;
+  const photosCount = person.photos?.length ?? 0;
+
+  const tabs: { value: Tab; label: string }[] = [
+    { value: 'main', label: t('person.tabs.main') },
+    { value: 'relatives', label: `${t('person.tabs.relatives')}${relativesCount ? ` ${relativesCount}` : ''}` },
+    { value: 'photos', label: `${t('person.tabs.photos')}${photosCount ? ` ${photosCount}` : ''}` },
+    { value: 'life', label: t('person.tabs.life') },
+  ];
 
   return (
     <section className="editor" key={id}>
-      <button type="button" className="btn btn-ghost back-btn" onClick={() => select(undefined)}>
-        {view.mode === 'tree' ? t('tree.back') : view.mode === 'calendar' ? t('calendar.back') : t('people.back')}
-      </button>
-
       <div className="editor-head">
         <div className="editor-title">
-          <Avatar person={person} size={56} />
-          <div>
+          <Avatar person={person} size={52} />
+          <div className="editor-title-text">
             <h2>{nameOf(person)}</h2>
-            <span className="muted">
-              {[lifespan(person), person.occupation].filter(Boolean).join(' · ')}
-            </span>
+            <span className="muted small">{[lifespan(person), person.occupation].filter(Boolean).join(' · ')}</span>
           </div>
         </div>
         <div className="editor-head-actions">
           {(focusId !== id || view.mode !== 'tree') && (
             <button
               type="button"
-              className="btn btn-small"
+              className="icon-btn"
+              title={t('tree.center')}
+              aria-label={t('tree.center')}
               onClick={() => {
                 setFocus(id);
                 setView({ mode: 'tree' });
               }}
             >
-              ◎ {t('tree.center')}
+              <Crosshair size={18} strokeWidth={1.75} />
             </button>
           )}
-          {isRoot ? (
-            <span className="muted small">★ {t('person.isRoot')}</span>
-          ) : (
-            <button type="button" className="btn btn-small" onClick={() => apply((tr) => setRootPerson(tr, id))}>
-              ★ {t('person.makeRoot')}
-            </button>
-          )}
-          <button type="button" className="btn btn-small btn-danger-ghost" onClick={() => setConfirmDelete(true)}>
-            {t('person.delete')}
+          <button
+            type="button"
+            className={isRoot ? 'icon-btn is-on' : 'icon-btn'}
+            title={isRoot ? t('person.isRoot') : t('person.makeRoot')}
+            aria-label={isRoot ? t('person.isRoot') : t('person.makeRoot')}
+            aria-pressed={isRoot}
+            onClick={() => !isRoot && apply((tr) => setRootPerson(tr, id))}
+          >
+            <Star size={18} strokeWidth={1.75} fill={isRoot ? 'currentColor' : 'none'} />
+          </button>
+          <button
+            type="button"
+            className="icon-btn icon-btn-danger"
+            title={t('person.delete')}
+            aria-label={t('person.delete')}
+            onClick={() => setConfirmDelete(true)}
+          >
+            <Trash size={18} strokeWidth={1.75} />
+          </button>
+          <button
+            type="button"
+            className="icon-btn"
+            title={view.mode === 'list' ? t('people.back') : t('common.close')}
+            aria-label={view.mode === 'list' ? t('people.back') : t('common.close')}
+            onClick={() => select(undefined)}
+          >
+            {view.mode === 'list' ? <ArrowLeft size={18} strokeWidth={1.75} className="mobile-only-icon" /> : <X size={18} strokeWidth={1.75} />}
           </button>
         </div>
       </div>
@@ -101,93 +140,130 @@ export function PersonEditor() {
       <RelationToRoot personId={id} />
       <PersonIssues personId={id} />
 
-      <div className="form-grid">
-        <TextField id="field-surname" label={t('person.surname')} value={person.names.surname} onChange={setName('surname')} />
-        <TextField id="field-given" label={t('person.given')} value={person.names.given} onChange={setName('given')} />
-        <TextField
-          id="field-patronymic"
-          label={t('person.patronymic')}
-          value={person.names.patronymic}
-          onChange={setName('patronymic')}
-        />
-        <TextField
-          id="field-birthSurname"
-          label={t('person.birthSurname')}
-          hint={t('person.birthSurnameHint')}
-          value={person.names.birthSurname}
-          onChange={setName('birthSurname')}
-        />
-        <label className="field">
-          <span>{t('person.sex')}</span>
-          <select value={person.sex} onChange={(e) => update((p) => ({ ...p, sex: e.target.value as Sex }))}>
-            <option value="M">{t('person.sexM')}</option>
-            <option value="F">{t('person.sexF')}</option>
-            <option value="U">{t('person.sexU')}</option>
-          </select>
-        </label>
-        <label className="field">
-          <span>{t('person.living')}</span>
-          <select
-            value={person.living === undefined ? 'auto' : person.living ? 'yes' : 'no'}
-            onChange={(e) =>
-              update((p) => {
-                const v = e.target.value;
-                const next = { ...p, living: v === 'auto' ? undefined : v === 'yes' };
-                if (next.living === undefined) delete next.living;
-                return next;
-              })
-            }
+      <div className="tabs" role="tablist">
+        {tabs.map((x) => (
+          <button
+            key={x.value}
+            type="button"
+            role="tab"
+            aria-selected={tab === x.value}
+            className={tab === x.value ? 'tab active' : 'tab'}
+            onClick={() => setTab(x.value)}
           >
-            <option value="auto">
-              {t('person.livingAuto', { state: autoLiving ? t('person.alive') : t('person.dead') })}
-            </option>
-            <option value="yes">{t('person.livingYes')}</option>
-            <option value="no">{t('person.livingNo')}</option>
-          </select>
-        </label>
-      </div>
-
-      <div className="events">
-        {(['birth', 'death'] as const).map((kind) => (
-          <fieldset key={kind} className="event">
-            <legend>{t(`person.${kind}`)}</legend>
-            <DateField
-              id={`field-${kind}-date`}
-              label={t('person.date')}
-              value={person[kind]?.date}
-              onCommit={(date) => setEvent(kind, { date })}
-            />
-            <TextField
-              id={`field-${kind}-place`}
-              label={t('person.place')}
-              value={person[kind]?.place}
-              onChange={(place) => setEvent(kind, { place: place || undefined }, `${kind}.place`)}
-            />
-          </fieldset>
+            {x.label}
+          </button>
         ))}
       </div>
-      <p className="muted small">{t('person.dateHint')}</p>
 
-      <TextField
-        id="field-occupation"
-        label={t('person.occupation')}
-        value={person.occupation}
-        onChange={(v) => update((p) => ({ ...p, occupation: v || undefined }), 'occupation')}
-      />
+      {tab === 'main' && (
+        <div className="tab-panel">
+          <div className="form-grid form-grid-3">
+            <TextField id="field-given" label={t('person.given')} value={person.names.given} onChange={setName('given')} />
+            <TextField id="field-patronymic" label={t('person.patronymic')} value={person.names.patronymic} onChange={setName('patronymic')} />
+            <TextField id="field-surname" label={t('person.surname')} value={person.names.surname} onChange={setName('surname')} />
+          </div>
+          {person.names.birthSurname || showBirthSurname ? (
+            <TextField
+              id="field-birthSurname"
+              label={t('person.birthSurname')}
+              hint={t('person.birthSurnameHint')}
+              value={person.names.birthSurname}
+              onChange={setName('birthSurname')}
+            />
+          ) : (
+            <button type="button" className="link-btn small add-field" onClick={() => setShowBirthSurname(true)}>
+              + {t('person.birthSurname')}
+            </button>
+          )}
 
-      <label className="field">
-        <span>{t('person.notes')}</span>
-        <textarea
-          rows={6}
-          value={person.notes ?? ''}
-          placeholder={t('person.notesPlaceholder')}
-          onChange={(e) => update((p) => ({ ...p, notes: e.target.value || undefined }), 'notes')}
-        />
-      </label>
+          {/* Пол и статус — друг под другом: рядом кнопки не помещаются в ширину карточки */}
+          <div className="form-stack">
+            <div className="field">
+              <span>{t('person.sex')}</span>
+              <SexToggle value={person.sex} onChange={(sex) => update((p) => ({ ...p, sex }))} />
+            </div>
+            <div className="field">
+              <span>{t('person.living')}</span>
+              <Segmented
+                full
+                label={t('person.living')}
+                value={person.living === undefined ? 'auto' : person.living ? 'yes' : 'no'}
+                onChange={(v) =>
+                  update((p) => {
+                    const next = { ...p, living: v === 'auto' ? undefined : v === 'yes' };
+                    if (next.living === undefined) delete next.living;
+                    return next;
+                  })
+                }
+                options={[
+                  { value: 'yes', label: t('person.livingYesShort') },
+                  { value: 'no', label: t('person.livingNoShort') },
+                  { value: 'auto', label: t('person.livingAutoShort'), title: t('person.livingAuto', { state: autoLiving ? t('person.alive') : t('person.dead') }) },
+                ]}
+              />
+            </div>
+          </div>
 
-      <PhotosSection person={person} />
+          <fieldset className="event">
+            <legend>{t('person.birth')}</legend>
+            <div className="form-grid form-grid-2">
+              <DateField id="field-birth-date" label={t('person.date')} value={person.birth?.date} onCommit={(date) => setEvent('birth', { date })} />
+              <TextField
+                id="field-birth-place"
+                label={t('person.place')}
+                value={person.birth?.place}
+                onChange={(place) => setEvent('birth', { place: place || undefined }, 'birth.place')}
+              />
+            </div>
+          </fieldset>
+          {showDeath && (
+            <fieldset className="event">
+              <legend>{t('person.death')}</legend>
+              <div className="form-grid form-grid-2">
+                <DateField id="field-death-date" label={t('person.date')} value={person.death?.date} onCommit={(date) => setEvent('death', { date })} />
+                <TextField
+                  id="field-death-place"
+                  label={t('person.place')}
+                  value={person.death?.place}
+                  onChange={(place) => setEvent('death', { place: place || undefined }, 'death.place')}
+                />
+              </div>
+            </fieldset>
+          )}
+        </div>
+      )}
 
-      <Relations person={person} />
+      {tab === 'relatives' && (
+        <div className="tab-panel">
+          <Relations person={person} />
+        </div>
+      )}
+
+      {tab === 'photos' && (
+        <div className="tab-panel">
+          <PhotosSection person={person} />
+        </div>
+      )}
+
+      {tab === 'life' && (
+        <div className="tab-panel">
+          <TextField
+            id="field-occupation"
+            label={t('person.occupation')}
+            value={person.occupation}
+            onChange={(v) => update((p) => ({ ...p, occupation: v || undefined }), 'occupation')}
+          />
+          <label className="field">
+            <span>{t('person.notes')}</span>
+            <textarea
+              rows={10}
+              value={person.notes ?? ''}
+              placeholder={t('person.notesPlaceholder')}
+              onChange={(e) => update((p) => ({ ...p, notes: e.target.value || undefined }), 'notes')}
+            />
+          </label>
+        </div>
+      )}
 
       {confirmDelete && (
         <ConfirmDialog
@@ -199,7 +275,7 @@ export function PersonEditor() {
           onConfirm={() => {
             setConfirmDelete(false);
             apply((tr) => removePerson(tr, id));
-            select(tree.rootPersonId !== id ? tree.rootPersonId : undefined);
+            select(undefined);
           }}
         />
       )}
@@ -224,14 +300,13 @@ function RelationToRoot({ personId }: { personId: string }) {
 
   if (name === null || !rootId) return null;
   return (
-    <div className="root-relation">
-      <span className="muted small">{t('kin.forRoot', { name: nameOf(tree.people[rootId]) })}:</span>{' '}
-      <strong>{name ?? t('kin.notRelatedShort')}</strong>{' '}
-      <button type="button" className="link-btn small" onClick={() => setOpen(true)}>
-        {t('kin.details')}
+    <>
+      <button type="button" className="root-relation" onClick={() => setOpen(true)} title={t('kin.details')}>
+        <span className="muted small">{t('kin.forRoot', { name: nameOf(tree.people[rootId]) })}:</span>{' '}
+        <strong>{name ?? t('kin.notRelatedShort')}</strong>
       </button>
       {open && <KinshipDialog initialA={rootId} initialB={personId} onClose={() => setOpen(false)} />}
-    </div>
+    </>
   );
 }
 
