@@ -2,68 +2,101 @@
 
 **Семейное древо в одном HTML-файле.** Скачайте файл, откройте двойным кликом — и работайте. Без регистрации, серверов и интернета: древо хранится только у вас.
 
-**A family tree in a single HTML file.** Download it, double-click, done. No sign-up, no servers, no internet — your data stays on your device. [English below ↓](#english)
+**A family tree in a single HTML file.** Download, double-click, done. No sign-up, no servers, no internet — your data stays on your device. [English below ↓](#english)
 
-> ⚠️ Проект в разработке (версия 0.8). Уже работает: календарь семейных дат (с экспортом в календарь телефона), печать и PDF (в том числе плакат из склеиваемых листов A4/A3), импорт и экспорт GEDCOM 5.5.1/7.0 (со скрытием живых), «Кем приходится» с точными русскими терминами, схема древа (семья, предки, потомки, веер) с масштабом и поиском, фото с аватарами, биография, проверка ошибок в датах, люди и связи, неточные даты, файл `.kinmap`, пароль на файл, автосохранение, автокопии, отмена (Ctrl+Z). Кнопка «Посмотреть пример» открывает выдуманную семью. План — в [docs/PLAN.md](docs/PLAN.md).
+![Схема семьи в KinMap (пример — выдуманная семья)](docs/screenshots/tree.png)
 
-## Что будет уметь
+## Как начать
 
-- 🌳 Древо любого размера: повторные браки, приёмные и сводные дети
-- 🖼 Фото, даты, места и истории у каждого человека
-- 🔗 «Кем приходится» — с точными русскими терминами: деверь, золовка, шурин, сват
-- 🖨 Печать на листах A4/A3 с полями для склейки в один плакат, PDF
-- 🔄 Импорт и экспорт GEDCOM — перенос из MyHeritage, Geni, Gramps и обратно
-- 🔒 Пароль на файл древа, скрытие живых людей при отправке другим
-- 📅 Календарь дней рождения и памятных дат
-- ✅ Проверка ошибок: «мать младше ребёнка» и т.п.
-- 🌓 Русский и английский интерфейс, светлая и тёмная тема
+1. Скачайте **`KinMap.html`** со страницы [Releases](../../releases/latest).
+2. Откройте его двойным кликом — в Chrome, Edge, Firefox или Safari.
+3. Нажмите «Создать новое древо», «Открыть файл древа» (подходит и GEDCOM из MyHeritage, Geni, Gramps) или «Посмотреть пример».
 
-## Как пользоваться
+Интернет не нужен ни для установки, ни для работы. Файл можно положить на флешку и открыть на любом компьютере.
 
-1. Скачайте `KinMap.html` со страницы [Releases](../../releases) *(появится с версией 1.0)*.
-2. Откройте его двойным кликом в Chrome, Edge, Firefox или Safari.
+## Возможности
 
-Или соберите сами (нужен [Node.js](https://nodejs.org) 20+):
+| | |
+|---|---|
+| 🌳 **Схема древа** | Виды «Семья» (предки сверху, потомки снизу), «Предки», «Потомки», «Веер». Масштаб колесом и пальцами, поиск, двойной клик — сделать человека центром. Повторные браки, разводы, приёмные дети, браки между родственниками |
+| 🔗 **Кем приходится** | Выберите двух людей — KinMap назовёт родство в обе стороны: деверь, золовка, шурин, свояченица, сват, ятровка, двоюродный дедушка, внучатый племянник, троюродная сестра… Если точного слова нет — описание: «жена брата жены» |
+| 🖼 **Фото и биография** | Фото сжимаются, данные о месте съёмки (GPS) удаляются. Круглый аватар с выбором области. Профессия, биография, неточные даты: «ок. 1950», «до 1920», «между 1900 и 1905» |
+| ✅ **Проверка ошибок** | «Мать младше ребёнка», «родился после смерти матери», возможные дубликаты — 13 видов замечаний. Неточные даты не дают ложных тревог |
+| 🖨 **Печать и PDF** | Плакат из склеиваемых листов A4/A3: полосы для клея, метки совмещения, схема сборки, линейка для проверки масштаба. Или один лист до A0 |
+| 🔄 **GEDCOM** | Импорт и экспорт 5.5.1 и 7.0 (MyHeritage, Geni, Ancestry, FamilySearch, Gramps). Кодировки UTF-8, Windows-1251, ANSEL. Незнакомые поля (источники и т.п.) не теряются |
+| 📅 **Календарь** | Дни рождения, памятные даты, годовщины свадеб, круглые даты. Экспорт в календарь телефона (.ics) |
+| 🔒 **Приватность** | Файл древа можно защитить паролем (AES-256). При экспорте в GEDCOM данные живых скрываются |
+| 💾 **Сохранность** | Автосохранение, 10 автокопий, отмена Ctrl+Z. В Chrome и Edge изменения сохраняются прямо в файл |
+| 🌓 | Русский и английский интерфейс, светлая и тёмная тема, работает на телефоне |
+
+<p>
+  <img src="docs/screenshots/card.png" alt="Карточка человека рядом со схемой" width="49%">
+  <img src="docs/screenshots/fan.png" alt="Веерная схема предков, тёмная тема" width="49%">
+</p>
+
+## Ваши данные
+
+- KinMap **ничего не отправляет в интернет**. Древо — это файл `.kinmap` у вас на диске; копия хранится в браузере на случай, если вы забыли сохранить.
+- Браузер может удалить свои данные (например, при очистке истории), поэтому **сохраняйте файл** — KinMap напомнит.
+- С паролем файл зашифрован: без пароля его не откроет никто. Пароль восстановить нельзя — храните копию без пароля в надёжном месте (кнопка есть в настройках пароля).
+
+## Какой браузер выбрать
+
+| | Chrome, Edge | Firefox, Safari |
+|---|---|---|
+| Работа с древом | ✅ | ✅ |
+| Сохранение | прямо в файл, автоматически | каждый раз скачивается новый файл |
+| Печать плаката | ✅ размер листа соблюдается | размер листа может не соблюдаться |
+
+## Сборка из исходников
+
+Нужен [Node.js](https://nodejs.org) 20+.
 
 | Что сделать | Windows | macOS / Linux |
 |---|---|---|
 | Собрать `dist/KinMap.html` | `build.bat` | `./build.sh` |
 | Запустить для разработки | `start.bat` | `./start.sh` |
 
-## Для разработчиков
-
 ```bash
-npm install      # зависимости + подключение git-хука проверки личных данных
+npm install      # зависимости + git-хук проверки личных данных
 npm run dev      # разработка с автообновлением
-npm test         # тесты
+npm test         # тесты (~270)
 npm run build    # сборка в dist/KinMap.html
 ```
 
-Стек: React, TypeScript, Vite, i18next, fflate (zip), Vitest. Сборка в один файл — `vite-plugin-singlefile`. Шифрование и хранилище — встроенные средства браузера (Web Crypto, IndexedDB).
+Как помочь проекту — в [CONTRIBUTING.md](CONTRIBUTING.md). Главное правило: **никаких настоящих семейных данных в репозитории** — только выдуманные примеры.
+
+Стек: React, TypeScript, Vite, i18next, fflate. Шифрование и хранилище — встроенные средства браузера (Web Crypto, IndexedDB). Подробности и решения — в [docs/PLAN.md](docs/PLAN.md), изменения — в [CHANGELOG.md](CHANGELOG.md).
 
 | Папка | Что внутри |
 |---|---|
-| `src/model` | Данные древа: типы, даты, операции, проверки — без интерфейса, покрыто тестами |
-| `src/file` | Формат `.kinmap`, шифрование паролем, открытие/сохранение файлов |
-| `src/storage` | Копии и автокопии в браузере (IndexedDB) |
-| `src/gedcom` | Импорт и экспорт GEDCOM 5.5.1/7.0, кодировки, даты |
-| `src/layout` | Раскладка схемы: потомки, предки, «песочные часы», веер — покрыто тестами |
-| `src/state` | Открытое древо, отмена, автосохранение, настройки вида |
+| `src/model` | Данные древа, даты, связи, «кем приходится», проверки, календарь |
+| `src/layout` | Раскладка схемы |
+| `src/gedcom` | Импорт и экспорт GEDCOM |
+| `src/file` | Формат `.kinmap`, шифрование, фото, файлы, .ics |
+| `src/print` | Геометрия печати |
+| `src/storage`, `src/state` | Хранилище браузера, открытое древо, отмена, автосохранение |
 | `src/ui` | Экраны и окна |
 
-**Личные данные не коммитим.** Git-хук не пропустит файлы `.kinmap`, `.ged` и фото вне папок `examples/`, `test-data/`, `docs/`. Тестовые семьи — только выдуманные.
+## Известные ограничения
+
+- Импорт GEDCOM проверен на выдуманных файлах в стиле MyHeritage, Gramps, GEDCOM 7 и русских программ; на настоящих выгрузках — пока мало. Если что-то импортировалось не так — [напишите](../../issues/new/choose) (без личных данных).
+- Импорт GEDCOM всегда создаёт новое древо — объединения с существующим пока нет.
+- Узбекского интерфейса и узбекских терминов родства (amaki, tog‘a…) пока нет.
 
 ---
 
 ## English
 
-KinMap is an open-source family tree app that runs entirely in your browser from one HTML file.
+KinMap is an open-source family tree app that runs entirely in your browser from **one HTML file** — no installation, no account, no server, works offline.
 
-**Planned features:** trees of any size (remarriages, adopted and step children), photos and stories, relationship finder (with precise Russian kinship terms), tiled A4/A3 printing to glue into a poster, GEDCOM import/export, password-protected tree files, hiding living people when sharing, anniversaries calendar, data consistency checks, Russian and English UI, light and dark themes.
+**Get started:** download `KinMap.html` from [Releases](../../releases/latest), double-click it, then create a tree, open a `.kinmap` or GEDCOM file, or press “Try an example”.
 
-**Use it:** download `KinMap.html` from [Releases](../../releases) (from v1.0) and open it. **Build it:** `build.bat` / `./build.sh` (Node.js 20+), output in `dist/KinMap.html`.
+**Features:** family / ancestors / descendants / fan charts with zoom and search; relationship finder (in Russian it knows the precise in-law terms; English terms include “first cousin once removed”); photos (compressed, GPS removed) with avatar cropping; biographies and approximate dates; data consistency checks; tiled A4/A3 poster printing with glue strips, alignment marks and an assembly map; GEDCOM 5.5.1 / 7.0 import & export (UTF-8, Windows-1251, ANSEL; unknown fields preserved; living people hidden on export); family calendar with .ics export; password-protected files (AES-256); autosave, auto-backups, undo; Russian and English UI; light and dark themes.
 
-**Contributing:** `npm install`, `npm run dev`, `npm test`. Never commit real family data — a pre-commit hook blocks tree files and photos outside `examples/`, `test-data/`, `docs/`.
+**Privacy:** nothing is sent anywhere. Your tree is a `.kinmap` file on your disk; the browser keeps a backup copy. Best experience in Chrome or Edge (saving directly to the file, exact print sizes).
+
+**Build:** Node.js 20+, then `build.bat` / `./build.sh` → `dist/KinMap.html`. **Contributing:** see [CONTRIBUTING.md](CONTRIBUTING.md) — never commit real family data; a pre-commit hook blocks tree files and photos outside `examples/`, `test-data/`, `docs/`.
 
 ## Лицензия / License
 

@@ -78,11 +78,21 @@ export function PanZoom({
     const first = lastSeq.current === null;
     lastSeq.current = center.seq;
     setTf((cur) => {
-      // В первый раз подбираем масштаб, чтобы влезло побольше (но не мельче 50%)
-      const k = first
-        ? Math.min(1, Math.max(0.5, Math.min(size.w / (bounds.maxX - bounds.minX + 80), size.h / (bounds.maxY - bounds.minY + 80))))
-        : cur.k;
-      return { x: size.w / 2 - center.x * k, y: size.h / 2 - center.y * k, k };
+      if (first) {
+        // В первый раз подбираем масштаб, чтобы влезло побольше (но не мельче 50%).
+        // Если древо помещается целиком — ставим по центру всё древо, а не только главного человека
+        const fitK = Math.min(size.w / (bounds.maxX - bounds.minX + 80), size.h / (bounds.maxY - bounds.minY + 80));
+        const k = Math.min(1, Math.max(0.5, fitK));
+        if (fitK >= 0.5) {
+          return {
+            k,
+            x: size.w / 2 - ((bounds.minX + bounds.maxX) / 2) * k,
+            y: size.h / 2 - ((bounds.minY + bounds.maxY) / 2) * k,
+          };
+        }
+        return { x: size.w / 2 - center.x * k, y: size.h / 2 - center.y * k, k };
+      }
+      return { x: size.w / 2 - center.x * cur.k, y: size.h / 2 - center.y * cur.k, k: cur.k };
     });
   }, [center, size.w, size.h, measured, bounds]);
 

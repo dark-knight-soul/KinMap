@@ -1,0 +1,12 @@
+# Dependabot раз в неделю проверяет обновления библиотек и предлагает их запросом на слияние.
+# Мелкие обновления собираются в один запрос, чтобы не засорять список.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
