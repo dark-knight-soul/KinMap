@@ -4,7 +4,7 @@
 
 **A family tree in a single HTML file.** Download it, double-click, done. No sign-up, no servers, no internet — your data stays on your device. [English below ↓](#english)
 
-> ⚠️ Проект в разработке (версия 0.1). Сейчас готов только каркас — план в [docs/PLAN.md](docs/PLAN.md).
+> ⚠️ Проект в разработке (версия 0.2). Уже работает: люди и связи (родители, браки, дети, братья/сёстры), неточные даты, файл `.kinmap`, пароль на файл, автосохранение, автокопии, отмена (Ctrl+Z). Само древо в виде схемы — следующий этап. План — в [docs/PLAN.md](docs/PLAN.md).
 
 ## Что будет уметь
 
@@ -39,7 +39,15 @@ npm test         # тесты
 npm run build    # сборка в dist/KinMap.html
 ```
 
-Стек: React, TypeScript, Vite, i18next, Vitest. Сборка в один файл — `vite-plugin-singlefile`.
+Стек: React, TypeScript, Vite, i18next, fflate (zip), Vitest. Сборка в один файл — `vite-plugin-singlefile`. Шифрование и хранилище — встроенные средства браузера (Web Crypto, IndexedDB).
+
+| Папка | Что внутри |
+|---|---|
+| `src/model` | Данные древа: типы, даты, операции, проверки — без интерфейса, покрыто тестами |
+| `src/file` | Формат `.kinmap`, шифрование паролем, открытие/сохранение файлов |
+| `src/storage` | Копии и автокопии в браузере (IndexedDB) |
+| `src/state` | Открытое древо, отмена, автосохранение |
+| `src/ui` | Экраны и окна |
 
 **Личные данные не коммитим.** Git-хук не пропустит файлы `.kinmap`, `.ged` и фото вне папок `examples/`, `test-data/`, `docs/`. Тестовые семьи — только выдуманные.
 

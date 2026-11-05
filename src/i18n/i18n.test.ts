@@ -18,8 +18,15 @@ describe('словари', () => {
   const ruFlat = flatten(ru);
   const enFlat = flatten(en);
 
+  // Формы множественного числа у языков разные (в русском есть _few/_many) — сравниваем без них
+  const PLURAL_ONLY = /_(zero|two|few|many)$/;
+  const baseKeys = (flat: Record<string, unknown>) =>
+    Object.keys(flat)
+      .filter((k) => !PLURAL_ONLY.test(k))
+      .sort();
+
   it('в русском и английском одинаковые ключи', () => {
-    expect(Object.keys(enFlat).sort()).toEqual(Object.keys(ruFlat).sort());
+    expect(baseKeys(enFlat)).toEqual(baseKeys(ruFlat));
   });
 
   it('нет пустых строк', () => {
@@ -31,7 +38,7 @@ describe('словари', () => {
 
   it('подстановки {{...}} совпадают в обоих языках', () => {
     const vars = (s: unknown) => String(s).match(/{{\s*\w+\s*}}/g)?.sort() ?? [];
-    for (const key of Object.keys(ruFlat)) {
+    for (const key of baseKeys(ruFlat)) {
       expect(vars(enFlat[key]), key).toEqual(vars(ruFlat[key]));
     }
   });

@@ -1,0 +1,194 @@
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { removePerson, setRootPerson, updatePerson } from '../model/ops';
+import { isLiving } from '../model/queries';
+import type { LifeEvent, Person, PersonNames, Sex } from '../model/types';
+import { apply, select, useApp } from '../state/store';
+import { DateField } from './DateField';
+import { lifespan, useNameOf } from './format';
+import { ConfirmDialog } from './Modal';
+import { Relations } from './Relations';
+
+// Карточка человека: имя, пол, даты, заметки и связи.
+// Поля сразу пишут изменения в древо; быстрые правки одного поля — один шаг отмены.
+export function PersonEditor() {
+  const { t } = useTranslation();
+  const tree = useApp((s) => s.session!.history.present);
+  const selectedId = useApp((s) => s.session!.selectedId);
+  const nameOf = useNameOf();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const person = selectedId ? tree.people[selectedId] : undefined;
+  if (!person) {
+    return (
+      <section className="editor editor-empty">
+        <p className="muted">{t('person.nothingSelected')}</p>
+      </section>
+    );
+  }
+  const id = person.id;
+
+  const update = (fn: (p: Person) => Person, field?: string) =>
+    apply((tr) => updatePerson(tr, id, fn), field ? `${id}.${field}` : undefined);
+
+  const setName = (field: keyof PersonNames) => (value: string) =>
+    update((p) => ({ ...p, names: { ...p.names, [field]: value || undefined } }), field);
+
+  const setEvent = (kind: 'birth' | 'death', patch: Partial<LifeEvent>, field?: string) =>
+    update((p) => {
+      const ev: LifeEvent = { ...p[kind], ...patch };
+      if (!ev.date) delete ev.date;
+      if (!ev.place) delete ev.place;
+      const next = { ...p, [kind]: ev };
+      if (!ev.date && !ev.place) delete next[kind];
+      return next;
+    }, field);
+
+  const autoLiving = isLiving({ ...person, living: undefined });
+  const isRoot = tree.rootPersonId === id;
+
+  return (
+    <section className="editor" key={id}>
+      <button type="button" className="btn btn-ghost back-btn" onClick={() => select(undefined)}>
+        {t('people.back')}
+      </button>
+
+      <div className="editor-head">
+        <div>
+          <h2>{nameOf(person)}</h2>
+          <span className="muted">{lifespan(person)}</span>
+        </div>
+        <div className="editor-head-actions">
+          {isRoot ? (
+            <span className="muted small">★ {t('person.isRoot')}</span>
+          ) : (
+            <button type="button" className="btn btn-small" onClick={() => apply((tr) => setRootPerson(tr, id))}>
+              ★ {t('person.makeRoot')}
+            </button>
+          )}
+          <button type="button" className="btn btn-small btn-danger-ghost" onClick={() => setConfirmDelete(true)}>
+            {t('person.delete')}
+          </button>
+        </div>
+      </div>
+
+      <div className="form-grid">
+        <TextField id="field-surname" label={t('person.surname')} value={person.names.surname} onChange={setName('surname')} />
+        <TextField id="field-given" label={t('person.given')} value={person.names.given} onChange={setName('given')} />
+        <TextField
+          id="field-patronymic"
+          label={t('person.patronymic')}
+          value={person.names.patronymic}
+          onChange={setName('patronymic')}
+        />
+        <TextField
+          id="field-birthSurname"
+          label={t('person.birthSurname')}
+          hint={t('person.birthSurnameHint')}
+          value={person.names.birthSurname}
+          onChange={setName('birthSurname')}
+        />
+        <label className="field">
+          <span>{t('person.sex')}</span>
+          <select value={person.sex} onChange={(e) => update((p) => ({ ...p, sex: e.target.value as Sex }))}>
+            <option value="M">{t('person.sexM')}</option>
+            <option value="F">{t('person.sexF')}</option>
+            <option value="U">{t('person.sexU')}</option>
+          </select>
+        </label>
+        <label className="field">
+          <span>{t('person.living')}</span>
+          <select
+            value={person.living === undefined ? 'auto' : person.living ? 'yes' : 'no'}
+            onChange={(e) =>
+              update((p) => {
+                const v = e.target.value;
+                const next = { ...p, living: v === 'auto' ? undefined : v === 'yes' };
+                if (next.living === undefined) delete next.living;
+                return next;
+              })
+            }
+          >
+            <option value="auto">
+              {t('person.livingAuto', { state: autoLiving ? t('person.alive') : t('person.dead') })}
+            </option>
+            <option value="yes">{t('person.livingYes')}</option>
+            <option value="no">{t('person.livingNo')}</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="events">
+        {(['birth', 'death'] as const).map((kind) => (
+          <fieldset key={kind} className="event">
+            <legend>{t(`person.${kind}`)}</legend>
+            <DateField
+              id={`field-${kind}-date`}
+              label={t('person.date')}
+              value={person[kind]?.date}
+              onCommit={(date) => setEvent(kind, { date })}
+            />
+            <TextField
+              id={`field-${kind}-place`}
+              label={t('person.place')}
+              value={person[kind]?.place}
+              onChange={(place) => setEvent(kind, { place: place || undefined }, `${kind}.place`)}
+            />
+          </fieldset>
+        ))}
+      </div>
+      <p className="muted small">{t('person.dateHint')}</p>
+
+      <label className="field">
+        <span>{t('person.notes')}</span>
+        <textarea
+          rows={4}
+          value={person.notes ?? ''}
+          placeholder={t('person.notesPlaceholder')}
+          onChange={(e) => update((p) => ({ ...p, notes: e.target.value || undefined }), 'notes')}
+        />
+      </label>
+
+      <Relations person={person} />
+
+      {confirmDelete && (
+        <ConfirmDialog
+          title={t('person.deleteTitle', { name: nameOf(person) })}
+          text={t('person.deleteText')}
+          confirmLabel={t('common.delete')}
+          danger
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={() => {
+            setConfirmDelete(false);
+            apply((tr) => removePerson(tr, id));
+            select(tree.rootPersonId !== id ? tree.rootPersonId : undefined);
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
+function TextField({
+  id,
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  hint?: string;
+  value: string | undefined;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label className="field">
+      <span>
+        {label}
+        {hint && <small className="muted"> — {hint}</small>}
+      </span>
+      <input id={id} value={value ?? ''} onChange={(e) => onChange(e.target.value)} />
+    </label>
+  );
+}

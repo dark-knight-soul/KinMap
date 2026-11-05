@@ -1,7 +1,7 @@
 {
   "name": "kinmap",
-  "version": "0.1.0",
-  "description": "Семейное древо в одном HTML-файле: работает в браузере без сервера и интернета. Family tree app in a single HTML file.",
+  "version": "0.2.0",
+  "description": "РЎРµРјРµР№РЅРѕРµ РґСЂРµРІРѕ РІ РѕРґРЅРѕРј HTML-С„Р°Р№Р»Рµ: СЂР°Р±РѕС‚Р°РµС‚ РІ Р±СЂР°СѓР·РµСЂРµ Р±РµР· СЃРµСЂРІРµСЂР° Рё РёРЅС‚РµСЂРЅРµС‚Р°. Family tree app in a single HTML file.",
   "private": true,
   "license": "MIT",
   "type": "module",
@@ -19,6 +19,7 @@
     "prepare": "git config core.hooksPath .githooks || exit 0"
   },
   "dependencies": {
+    "fflate": "^0.8.3",
     "i18next": "^26.7.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
