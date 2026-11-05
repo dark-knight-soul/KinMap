@@ -832,3 +832,42 @@ input[type='range'] { padding: 0; accent-color: var(--accent); }
 
 .card-issue circle { fill: #e0a100; }
 .card-issue text { fill: #1f1600 !important; font-size: 12px; font-weight: 700; }
+/* ───────────── Этап 5: «Кем приходится» ───────────── */
+.kin-pickers { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: end; }
+.kin-select { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.kin-select .tree-search { width: 100%; margin: 0; }
+.kin-select .search-results { left: 0; right: auto; width: 100%; }
+.kin-swap { align-self: end; }
+.kin-result { display: flex; flex-direction: column; gap: 12px; }
+.kin-answers { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.kin-answer {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--bg);
+}
+.kin-who { font-weight: 600; }
+.kin-term { font-size: 1.35rem; font-weight: 700; color: var(--accent); margin: 2px 0; }
+.kin-path { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.kin-step { display: block; margin-left: 12px; font-size: 0.8rem; color: var(--muted); }
+.kin-person {
+  font: inherit;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.kin-person:hover { border-color: var(--accent); }
+.kin-also { margin: 0; padding-left: 18px; }
+.root-relation { font-size: 0.95rem; }
+@media (max-width: 600px) {
+  .kin-pickers { grid-template-columns: 1fr; }
+  .kin-swap { justify-self: center; }
+  .kin-answers { grid-template-columns: 1fr; }
+}

@@ -17,6 +17,7 @@ import {
 } from '../state/store';
 import { setView, useView } from '../state/view';
 import { IssuesButton, IssuesDialog } from './IssuesView';
+import { KinshipDialog } from './KinshipDialog';
 import { ConfirmDialog } from './Modal';
 import { PasswordDialog } from './PasswordDialog';
 import { PeopleList, addEmptyPerson } from './PeopleList';
@@ -29,7 +30,7 @@ import { TreeToolbar } from './tree/TreeToolbar';
 /** Через сколько минут без сохранения в файл показывать напоминание */
 const REMIND_AFTER_MIN = 15;
 
-type DialogName = 'password' | 'snapshots' | 'close' | 'issues' | null;
+type DialogName = 'password' | 'snapshots' | 'close' | 'issues' | 'kinship' | null;
 
 export function Workspace() {
   const { t } = useTranslation();
@@ -192,6 +193,11 @@ export function Workspace() {
           ))}
         </div>
         {view.mode === 'tree' && hasPeople && <TreeToolbar />}
+        {hasPeople && (
+          <button type="button" className="btn btn-small" onClick={() => setDialog('kinship')}>
+            {t('kin.button')}
+          </button>
+        )}
         <IssuesButton onClick={() => setDialog('issues')} />
       </div>
 
@@ -223,6 +229,19 @@ export function Workspace() {
       {dialog === 'password' && <PasswordDialog onClose={() => setDialog(null)} />}
       {dialog === 'snapshots' && <SnapshotsDialog onClose={() => setDialog(null)} />}
       {dialog === 'issues' && <IssuesDialog onClose={() => setDialog(null)} />}
+      {dialog === 'kinship' && (
+        <KinshipDialog
+          initialA={tree.rootPersonId}
+          initialB={
+            session.selectedId && session.selectedId !== tree.rootPersonId
+              ? session.selectedId
+              : session.focusId !== tree.rootPersonId
+                ? session.focusId
+                : undefined
+          }
+          onClose={() => setDialog(null)}
+        />
+      )}
       {dialog === 'close' && (
         <ConfirmDialog
           title={t('close.title')}

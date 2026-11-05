@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { removePerson, setRootPerson, updatePerson } from '../model/ops';
 import { isLiving } from '../model/queries';
@@ -6,9 +6,12 @@ import type { LifeEvent, Person, PersonNames, Sex } from '../model/types';
 import { apply, select, setFocus, useApp } from '../state/store';
 import { setView, useView } from '../state/view';
 import { DateField } from './DateField';
-import { lifespan, useNameOf } from './format';
+import { lifespan, useDateLocale, useNameOf } from './format';
 import { ConfirmDialog } from './Modal';
+import { findKinship } from '../model/kinship';
+import { nameKinship } from '../model/kinshipTerms';
 import { PersonIssues } from './IssuesView';
+import { KinshipDialog } from './KinshipDialog';
 import { Avatar } from './media';
 import { PhotosSection } from './photos/PhotosSection';
 import { Relations } from './Relations';
@@ -95,6 +98,7 @@ export function PersonEditor() {
         </div>
       </div>
 
+      <RelationToRoot personId={id} />
       <PersonIssues personId={id} />
 
       <div className="form-grid">
@@ -200,6 +204,34 @@ export function PersonEditor() {
         />
       )}
     </section>
+  );
+}
+
+/** «Для главного человека (Алексей Демидов): прадедушка» — с кнопкой подробнее */
+function RelationToRoot({ personId }: { personId: string }) {
+  const { t } = useTranslation();
+  const tree = useApp((s) => s.session!.history.present);
+  const lang = useDateLocale();
+  const nameOf = useNameOf();
+  const [open, setOpen] = useState(false);
+  const rootId = tree.rootPersonId;
+
+  const name = useMemo(() => {
+    if (!rootId || rootId === personId) return null;
+    const k = findKinship(tree, rootId, personId);
+    return k ? nameKinship(tree, k, lang).term : undefined;
+  }, [tree, rootId, personId, lang]);
+
+  if (name === null || !rootId) return null;
+  return (
+    <div className="root-relation">
+      <span className="muted small">{t('kin.forRoot', { name: nameOf(tree.people[rootId]) })}:</span>{' '}
+      <strong>{name ?? t('kin.notRelatedShort')}</strong>{' '}
+      <button type="button" className="link-btn small" onClick={() => setOpen(true)}>
+        {t('kin.details')}
+      </button>
+      {open && <KinshipDialog initialA={rootId} initialB={personId} onClose={() => setOpen(false)} />}
+    </div>
   );
 }
 
