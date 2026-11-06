@@ -45,7 +45,7 @@ export function DateField({
           if (e.key === 'Enter') commit();
         }}
         title={t('person.dateHint')}
-        placeholder={locale === 'ru' ? 'дд.мм.гггг' : 'd Mon yyyy'}
+        placeholder={locale === 'ru' ? 'дд.мм.гггг' : locale === 'uz' ? 'kk.oo.yyyy' : 'd Mon yyyy'}
         aria-invalid={notParsed}
       />
       {notParsed && <small className="warn-text">{t('person.dateNotParsed')}</small>}

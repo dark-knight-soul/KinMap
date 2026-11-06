@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ru } from './ru';
 import { en } from './en';
+import { uz } from './uz';
 import { detectLanguage } from './detect';
 
 // Собирает все ключи словаря в плоский список вида «welcome.title»
@@ -29,6 +30,14 @@ describe('словари', () => {
     expect(baseKeys(enFlat)).toEqual(baseKeys(ruFlat));
   });
 
+  it('в узбекском те же ключи и подстановки', () => {
+    const uzFlat = flatten(uz);
+    expect(baseKeys(uzFlat)).toEqual(baseKeys(enFlat));
+    const vars = (v: unknown) => String(v).match(/{{\s*\w+\s*}}/g)?.sort() ?? [];
+    for (const key of baseKeys(enFlat)) expect(vars(uzFlat[key]), key).toEqual(vars(enFlat[key]));
+    for (const [key, value] of Object.entries(uzFlat)) expect(String(value).trim(), key).not.toBe('');
+  });
+
   it('нет пустых строк', () => {
     for (const [key, value] of Object.entries({ ...ruFlat, ...enFlat })) {
       expect(typeof value, key).toBe('string');
@@ -53,8 +62,12 @@ describe('detectLanguage', () => {
     expect(detectLanguage('xx', ['ru-RU'])).toBe('ru');
   });
 
-  it('узбекский браузер получает русский интерфейс', () => {
-    expect(detectLanguage(null, ['uz-UZ', 'en-US'])).toBe('ru');
+  it('узбекский браузер получает узбекский интерфейс', () => {
+    expect(detectLanguage(null, ['uz-UZ', 'en-US'])).toBe('uz');
+  });
+
+  it('казахский браузер — русский интерфейс', () => {
+    expect(detectLanguage(null, ['kk-KZ'])).toBe('ru');
   });
 
   it('английский браузер получает английский', () => {

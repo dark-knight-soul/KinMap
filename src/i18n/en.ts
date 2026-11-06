@@ -7,7 +7,7 @@ type DropRuPlurals<T> = {
     ? T[K]
     : DropRuPlurals<T[K]>;
 };
-type EnDictionary = DropRuPlurals<Dictionary>;
+export type EnDictionary = DropRuPlurals<Dictionary>;
 
 export const en: EnDictionary = {
   app: {

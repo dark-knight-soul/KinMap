@@ -2,6 +2,7 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { ru } from './ru';
 import { en } from './en';
+import { uz } from './uz';
 import { detectLanguage, type LanguageCode } from './detect';
 import { readSetting, writeSetting } from '../lib/storage';
 
@@ -16,7 +17,7 @@ const initial = detectLanguage(readSetting('language'), navigator.languages ?? [
 document.documentElement.lang = initial;
 
 void i18n.use(initReactI18next).init({
-  resources: { ru: { translation: ru }, en: { translation: en } },
+  resources: { ru: { translation: ru }, en: { translation: en }, uz: { translation: uz } },
   lng: initial,
   fallbackLng: 'en',
   // React сам экранирует текст, двойное экранирование не нужно

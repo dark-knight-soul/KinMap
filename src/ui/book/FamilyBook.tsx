@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { MediaStore } from '../../file/format';
-import { approxYear, formatFuzzyDate } from '../../model/dates';
+import { approxYear, formatFuzzyDate, type DateLocale } from '../../model/dates';
 import { sortEvents } from '../../model/events';
 import { ancestorReport, descendantReport, type AncEntry, type DescEntry } from '../../model/reports';
 import { childrenOf, fullName, isLiving, parentsOf, sortKey, spousesOf } from '../../model/queries';
@@ -235,7 +235,7 @@ function DescRecord({
   lifeLine: (p: Person) => string;
   spouseWord: (p: Person | undefined) => string;
   hidden: (p: Person) => boolean;
-  locale: 'ru' | 'en';
+  locale: DateLocale;
 }) {
   const p = tree.people[e.personId]!;
   if (e.seeNum) {
@@ -339,7 +339,7 @@ function Biography({
   hidden: boolean;
   photo?: string;
   refs?: string[];
-  locale: 'ru' | 'en';
+  locale: DateLocale;
 }) {
   const parents = parentsOf(tree, p.id).map((x) => short(x.person));
   const spouses = spousesOf(tree, p.id);

@@ -2,7 +2,7 @@ import { ArrowLeftRight, Route } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { bloodRelations, findKinship, type Kinship } from '../model/kinship';
-import { bloodTermEn, bloodTermRu, nameKinship, stepLabel, type KinLang } from '../model/kinshipTerms';
+import { bloodTermEn, bloodTermRu, bloodTermUz, nameKinship, stepLabel, type KinLang } from '../model/kinshipTerms';
 import { matchesQuery, sortKey } from '../model/queries';
 import type { PersonId, TreeData } from '../model/types';
 import { select, setFocus, useApp } from '../state/store';
@@ -128,7 +128,7 @@ export function KinshipDialog({ initialA, initialB, onClose }: { initialA?: Pers
                   <ul className="kin-also">
                     {result.alternatives.map((r) => (
                       <li key={`${r.up}:${r.down}`}>
-                        {(lang === 'ru' ? bloodTermRu : bloodTermEn)(r.up, r.down, personB.sex)}{' '}
+                        {(lang === 'ru' ? bloodTermRu : lang === 'uz' ? bloodTermUz : bloodTermEn)(r.up, r.down, personB.sex)}{' '}
                         <span className="muted small">{t('kin.via', { name: nameOf(tree.people[r.via]) })}</span>
                       </li>
                     ))}

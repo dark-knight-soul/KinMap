@@ -3,6 +3,7 @@
 
 export const LANGUAGES = [
   { code: 'ru', label: 'Русский' },
+  { code: 'uz', label: 'Oʻzbekcha' },
   { code: 'en', label: 'English' },
 ] as const;
 
@@ -12,7 +13,8 @@ export const isLanguage = (value: string | null | undefined): value is LanguageC
   LANGUAGES.some((l) => l.code === value);
 
 // Языки, носителям которых русский интерфейс обычно понятнее английского
-const PREFER_RUSSIAN = ['ru', 'uz', 'kk', 'ky', 'tg', 'be', 'uk', 'az', 'hy', 'ka', 'tk'];
+// (узбекский теперь свой — в списке его нет)
+const PREFER_RUSSIAN = ['ru', 'kk', 'ky', 'tg', 'be', 'uk', 'az', 'hy', 'ka', 'tk'];
 
 // Сохранённый выбор → язык браузера → английский
 export function detectLanguage(saved: string | null, browserLanguages: readonly string[]): LanguageCode {

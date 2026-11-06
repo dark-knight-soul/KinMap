@@ -1,5 +1,14 @@
 # Изменения / Changelog
 
+## 1.5.0 — 2026-11-06
+
+Oʻzbekcha interfeys. / Узбекский интерфейс. / Uzbek interface.
+
+- **Узбекский язык (латиница):** весь интерфейс, «Книга семьи», лента времени. Выбор — в меню ⚙; браузер на узбекском сразу открывает KinMap по-узбекски.
+- **Узбекские термины родства:** aka/uka и opa/singil (старше/младше), amaki/amma и togʻa/xola (по отцу/по матери), amakivachcha…, qaynota/qaynona, qaynagʻa/qaynini, qaynopa/qaynsingil, kuyov, kelin, kelinoyi, pochcha, quda/qudagʻay, boja, ovsin. Если точного слова нет — описание цепочкой: «togʻasining xotini».
+- **Даты по-узбекски:** вывод «taxm. 1950», «1920 gacha», «1945 dan keyin», «1900 va 1905 oraligʻida»; ввод понимает и названия месяцев (12 mart 1950).
+- Таблица терминов для проверки носителями языка: [docs/uz-kinship-review.md](docs/uz-kinship-review.md).
+
 ## 1.4.0 — 2026-11-06
 
 События жизни и «Книга семьи». / Life events and a family book.

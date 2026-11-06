@@ -1,3 +1,4 @@
+import type { DateLocale } from '../model/dates';
 // Геометрия печати (всё в миллиметрах).
 //
 // Склеиваемые листы. Принтер не печатает у самого края, поэтому у каждого листа
@@ -40,12 +41,13 @@ export function paperSize(paper: PaperName, orientation: Orientation): [number, 
 }
 
 // Буквы рядов: «А-1», «Б-3»… (без Ё, Й, Ъ, Ы, Ь — их легко спутать)
-const ROW_LETTERS: Record<'ru' | 'en', string> = {
+const ROW_LETTERS: Record<DateLocale, string> = {
   ru: 'АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЭЮЯ',
   en: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+  uz: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
 };
 
-export function rowLabel(row: number, lang: 'ru' | 'en'): string {
+export function rowLabel(row: number, lang: DateLocale): string {
   const letters = ROW_LETTERS[lang];
   let s = '';
   let n = row;
@@ -90,7 +92,7 @@ export interface TilePlan {
   tiles: Tile[];
 }
 
-function planFor(chart: ChartSize, paper: PaperName, orientation: Orientation, sheetsAcross: number, lang: 'ru' | 'en'): TilePlan {
+function planFor(chart: ChartSize, paper: PaperName, orientation: Orientation, sheetsAcross: number, lang: DateLocale): TilePlan {
   const [sheetW, sheetH] = paperSize(paper, orientation);
   const contentW = sheetW - 2 * MARGIN;
   const contentH = sheetH - 2 * MARGIN;
@@ -133,7 +135,7 @@ export function planTiles(
   paper: PaperName,
   orientation: Orientation | 'auto',
   sheetsAcross: number,
-  lang: 'ru' | 'en' = 'ru',
+  lang: DateLocale = 'ru',
 ): TilePlan {
   if (orientation !== 'auto') return planFor(chart, paper, orientation, sheetsAcross, lang);
   const p = planFor(chart, paper, 'portrait', sheetsAcross, lang);

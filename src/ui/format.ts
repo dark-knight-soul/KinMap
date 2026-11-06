@@ -7,7 +7,8 @@ import type { Person } from '../model/types';
 
 export function useDateLocale(): DateLocale {
   const { i18n } = useTranslation();
-  return i18n.resolvedLanguage === 'ru' ? 'ru' : 'en';
+  const lang = i18n.resolvedLanguage;
+  return lang === 'ru' || lang === 'uz' ? lang : 'en';
 }
 
 export function formatDateTime(iso: string | undefined, lang: string): string {

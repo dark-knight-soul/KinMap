@@ -6,23 +6,25 @@ import type { DatePart, FuzzyDate } from './types';
 //   до 1950 / bef / before / <                    → до
 //   после 1950 / aft / after / >                  → после
 //   между 1900 и 1905 / 1900–1905 / bet 1900 and 1905 → между
+// По-узбекски: taxm. 1950 / taxminan 1950 → около; 1950 gacha → до; 1950 dan keyin → после;
+//   1900 va 1905 oralig‘ida → между; месяцы: yanvar, fevral, mart…
 // Нераспознанный текст сохраняется в FuzzyDate.text, чтобы не потерять данные.
 
-export type DateLocale = 'ru' | 'en';
+export type DateLocale = 'ru' | 'en' | 'uz';
 
 const MONTH_STEMS: [RegExp, number][] = [
-  [/^(янв|jan)/, 1],
-  [/^(фев|feb)/, 2],
+  [/^(янв|jan|yan)/, 1],
+  [/^(фев|feb|fev)/, 2],
   [/^(мар|mar)/, 3],
   [/^(апр|apr)/, 4],
   [/^(ма[йя]|may)/, 5],
-  [/^(июн|jun)/, 6],
-  [/^(июл|jul)/, 7],
-  [/^(авг|aug)/, 8],
-  [/^(сен|sep)/, 9],
-  [/^(окт|oct)/, 10],
-  [/^(ноя|nov)/, 11],
-  [/^(дек|dec)/, 12],
+  [/^(июн|jun|iyun)/, 6],
+  [/^(июл|jul|iyul)/, 7],
+  [/^(авг|aug|avg)/, 8],
+  [/^(сен|sep|sen)/, 9],
+  [/^(окт|oct|okt)/, 10],
+  [/^(ноя|nov|noy)/, 11],
+  [/^(дек|dec|dek)/, 12],
 ];
 
 const EN_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -65,15 +67,39 @@ export function parseDatePart(input: string): DatePart | undefined {
 
 const PREFIXES: [RegExp, NonNullable<FuzzyDate['q']>][] = [
   // Длинные слова раньше коротких: иначе «aft» откусит начало «after»
-  [/^(около|примерно|прим\.?|ок\.?|~|about|abt\.?|circa|cal\.?|ca?\.|est\.?)\s*/i, 'about'],
+  [/^(около|примерно|прим\.?|ок\.?|~|about|abt\.?|circa|cal\.?|ca?\.|est\.?|taxminan|taxm\.?)\s*/i, 'about'],
   [/^(ранее|до|before|bef\.?|<)\s*/i, 'before'],
   [/^(позднее|после|after|aft\.?|>)\s*/i, 'after'],
 ];
+
+/** Узбекский апостроф в «o‘», «g‘» пишут по-разному: ‘ ' ʻ ` ’ */
+const UZ_APOS = "[‘'ʻ`’]";
+// Узбекские послелоги: «1950 gacha», «1950 dan keyin», «1900 va 1905 oralig‘ida»
+const UZ_SUFFIXES: [RegExp, NonNullable<FuzzyDate['q']>][] = [
+  [/^(.+?)\s*-?(?:yil)?\s*-?gacha$/i, 'before'],
+  [new RegExp(`^(.+?)\\s*-?(?:yil)?\\s*-?dan\\s+(?:keyin|so${UZ_APOS}ng)$`, 'i'), 'after'],
+];
+const UZ_BETWEEN = new RegExp(`^(.+?)\\s+va\\s+(.+?)\\s+oralig${UZ_APOS}ida$`, 'i');
 
 /** Разбор строки в неточную дату. Пустая строка → undefined */
 export function parseFuzzyDate(input: string): FuzzyDate | undefined {
   const raw = input.trim();
   if (!raw) return undefined;
+
+  const uzBetween = raw.match(UZ_BETWEEN);
+  if (uzBetween) {
+    const a = parseDatePart(uzBetween[1]!);
+    const b = parseDatePart(uzBetween[2]!);
+    if (a && b && compareParts(a, b) <= 0) return { q: 'between', date: a, date2: b };
+    return { text: raw };
+  }
+  for (const [re, q] of UZ_SUFFIXES) {
+    const m = raw.match(re);
+    if (m) {
+      const part = parseDatePart(m[1]!);
+      return part ? { q, date: part } : { text: raw };
+    }
+  }
 
   // «между X и Y», «bet X and Y», «X–Y» (только годы через тире, чтобы не спутать с ISO)
   const between =
@@ -101,7 +127,8 @@ export function parseFuzzyDate(input: string): FuzzyDate | undefined {
 const pad = (n: number) => String(n).padStart(2, '0');
 
 export function formatDatePart(p: DatePart, locale: DateLocale): string {
-  if (locale === 'ru') {
+  // По-русски и по-узбекски — числами: 12.03.1950
+  if (locale === 'ru' || locale === 'uz') {
     if (p.d !== undefined && p.m !== undefined) return `${pad(p.d)}.${pad(p.m)}.${p.y}`;
     if (p.m !== undefined) return `${pad(p.m)}.${p.y}`;
     return String(p.y);
@@ -112,7 +139,7 @@ export function formatDatePart(p: DatePart, locale: DateLocale): string {
   return String(p.y);
 }
 
-const WORDS: Record<DateLocale, Record<'about' | 'before' | 'after' | 'between' | 'and', string>> = {
+const WORDS: Record<'ru' | 'en', Record<'about' | 'before' | 'after' | 'between' | 'and', string>> = {
   ru: { about: 'ок.', before: 'до', after: 'после', between: 'между', and: 'и' },
   en: { about: 'abt', before: 'before', after: 'after', between: 'between', and: 'and' },
 };
@@ -121,8 +148,23 @@ const WORDS: Record<DateLocale, Record<'about' | 'before' | 'after' | 'between' 
 export function formatFuzzyDate(date: FuzzyDate | undefined, locale: DateLocale): string {
   if (!date) return '';
   if (!date.date) return date.text ?? '';
-  const w = WORDS[locale];
   const a = formatDatePart(date.date, locale);
+  if (locale === 'uz') {
+    // Узбекский — с послелогами: «1950 gacha», «1950 dan keyin»
+    switch (date.q) {
+      case 'about':
+        return `taxm. ${a}`;
+      case 'before':
+        return `${a} gacha`;
+      case 'after':
+        return `${a} dan keyin`;
+      case 'between':
+        return date.date2 ? `${a} va ${formatDatePart(date.date2, locale)} oralig‘ida` : a;
+      default:
+        return a;
+    }
+  }
+  const w = WORDS[locale];
   switch (date.q) {
     case 'about':
       return `${w.about} ${a}`;

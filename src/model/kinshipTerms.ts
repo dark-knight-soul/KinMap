@@ -1,5 +1,8 @@
 import type { BloodSegment, Kinship, Step } from './kinship';
 import type { PersonId, Sex, TreeData, UnionStatus } from './types';
+import { nameKinshipUz, stepLabelUz } from './kinshipUz';
+
+export { bloodTermUz } from './kinshipUz';
 
 // Названия родства по найденной цепочке (см. kinship.ts) — по-русски и по-английски.
 // Термин отвечает на вопрос «кем B приходится A».
@@ -12,8 +15,9 @@ import type { PersonId, Sex, TreeData, UnionStatus } from './types';
 //   пасынок/падчерица, сводный брат/сестра.
 //   Если точного слова нет — описание с родительным падежом: «сын брата жены».
 // Английский: father, great-grandmother, first cousin once removed, brother-in-law…
+// Узбекский — в kinshipUz.ts (aka/uka, amaki/tog‘a, qaynota, quda…).
 
-export type KinLang = 'ru' | 'en';
+export type KinLang = 'ru' | 'en' | 'uz';
 
 export interface KinshipName {
   /** Готовый термин или описание */
@@ -165,6 +169,7 @@ function spouseEn(status: UnionStatus, g: Sex): string {
 /** Подпись одного шага цепочки: кем следующий человек приходится предыдущему */
 export function stepLabel(tree: TreeData, step: Step, lang: KinLang): string {
   const g = tree.people[step.to]?.sex ?? 'U';
+  if (lang === 'uz') return stepLabelUz(step.kind, step.status, g);
   if (step.kind === 'spouse') return lang === 'ru' ? spouseRu(step.status ?? 'unknown', g) : spouseEn(step.status ?? 'unknown', g);
   const [a, b] = step.kind === 'up' ? [1, 0] : [0, 1];
   return lang === 'ru' ? bloodTermRu(a, b, g) : bloodTermEn(a, b, g);
@@ -175,6 +180,7 @@ export function stepLabel(tree: TreeData, step: Step, lang: KinLang): string {
 const isSeg = (s: BloodSegment | undefined, up: number, down: number) => !!s && s.up === up && s.down === down;
 
 export function nameKinship(tree: TreeData, k: Kinship, lang: KinLang): KinshipName {
+  if (lang === 'uz') return nameKinshipUz(tree, k);
   const sex = (id: PersonId): Sex => tree.people[id]?.sex ?? 'U';
   const segs = k.segments;
   const last = segs[segs.length - 1]!;
