@@ -40,14 +40,12 @@ body {
 .logo {
   width: 36px;
   height: 36px;
-  fill: var(--accent);
-  stroke: var(--accent);
-  stroke-width: 2;
+  flex-shrink: 0;
 }
-
-.logo path {
-  fill: none;
-}
+.logo-plate { fill: var(--accent); }
+.logo-branches { fill: none; stroke: var(--accent-text); stroke-width: 6; stroke-linecap: round; }
+.logo-people { fill: var(--accent-text); }
+.logo-leaf { fill: var(--accent-text); opacity: 0.6; }
 
 .brand-name {
   font-weight: 700;
