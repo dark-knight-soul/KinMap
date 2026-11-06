@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { CARD_H, CARD_W, type Bounds } from '../../layout/types';
 import type { TreeData } from '../../model/types';
 import { GLUE, MARGIN, PADDING, type SinglePlan, type Tile, type TilePlan } from '../../print/tiling';
+import { ArtTreeContent } from '../tree/ArtTree';
 import { CardsContent, FanContent, type Computed } from '../tree/TreeChart';
 
 // Страницы для печати. Каждая — SVG размером с лист в миллиметрах (viewBox в мм),
@@ -23,6 +24,8 @@ function ChartGroup({
     <g transform={`translate(${PADDING - b.minX} ${PADDING - b.minY})`}>
       {computed.kind === 'fan' ? (
         <FanContent tree={tree} fan={computed.fan} />
+      ) : computed.kind === 'art' ? (
+        <ArtTreeContent tree={tree} layout={computed.art} vp={{ ...region, scale: 1 }} print />
       ) : (
         <CardsContent tree={tree} chart={computed.chart} vp={{ ...region, scale: 1 }} focusId="" print />
       )}

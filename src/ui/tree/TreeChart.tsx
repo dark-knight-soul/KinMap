@@ -1,20 +1,24 @@
 import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FAN_CENTER_R, layoutFan, type FanSegment } from '../../layout/fanLayout';
+import { layoutArtTree, type ArtTreeLayout } from '../../layout/artTreeLayout';
+import { layoutButterfly } from '../../layout/butterflyLayout';
+import { FAN_CENTER_R, layoutCircle, layoutFan, type FanSegment } from '../../layout/fanLayout';
 import { layoutAncestors, layoutDescendants, layoutFamily } from '../../layout/treeLayout';
 import { CARD_H, CARD_W, type Bounds, type CardBox, type ChartLayout } from '../../layout/types';
 import type { Person, TreeData } from '../../model/types';
 import { select, setFocus, useApp } from '../../state/store';
-import { useView, type ChartKind, type ColorMode } from '../../state/view';
+import { ROTATABLE, useView, type ChartKind, type ColorMode } from '../../state/view';
 import { avatarGeometry } from '../../file/images';
 import { computeIssues } from '../../model/checks';
-import { openContextMenu, setHighlight, useUi } from '../../state/ui';
+import { setHighlight, useUi } from '../../state/ui';
 import { lineKinds, surnameColors, surnameKey, type LineKind } from '../../layout/colors';
 import { lifespan } from '../format';
 import { genderSurname } from '../../model/names';
 import { urlFor } from '../media';
 import { useAddRelative, type RelativeKind } from '../useAddRelative';
+import { ArtTreeContent } from './ArtTree';
 import { CardContextMenu, QuickAdd } from './CardActions';
+import { contextMenuHandlers } from './cardEvents';
 import { PanZoom, type MinimapRect, type Viewport } from './PanZoom';
 import { X } from 'lucide-react';
 
@@ -30,9 +34,10 @@ export function TreeChart() {
 
   const focus = focusId && tree.people[focusId] ? focusId : tree.rootPersonId;
 
+  const horizontal = view.horizontal && ROTATABLE.includes(view.chart);
   const layout = useMemo(
-    () => (focus ? computeLayout(tree, view.chart, focus, view.up, view.down) : null),
-    [tree, view.chart, focus, view.up, view.down],
+    () => (focus ? computeLayout(tree, view.chart, focus, view.up, view.down, horizontal) : null),
+    [tree, view.chart, focus, view.up, view.down, horizontal],
   );
 
   const { add, dialog } = useAddRelative();
@@ -44,7 +49,9 @@ export function TreeChart() {
     () =>
       layout?.kind === 'cards'
         ? layout.chart.cards.map((c) => ({ x: c.x, y: c.y, w: CARD_W, h: CARD_H, color: tints?.get(c.personId) }))
-        : undefined,
+        : layout?.kind === 'art'
+          ? layout.art.nodes.map((n) => ({ x: n.x - n.r, y: n.y - n.r, w: n.r * 2, h: n.r * 2, color: tints?.get(n.personId) }))
+          : undefined,
     [layout, tints],
   );
 
@@ -52,11 +59,13 @@ export function TreeChart() {
 
   // Центрируем на человеке-центре при смене центра или вида (но не при каждой правке)
   // При подсветке пути — центр на середине пути, иначе на человеке-центре
+  const seq = `${view.chart}:${horizontal ? 'h' : 'v'}:${focus}`;
   const center =
     layout.kind === 'fan'
-      ? { x: 0, y: -layout.fan.radius / 2, seq: `${view.chart}:${focus}` }
-      : (highlight && centerOfPath(layout.chart, highlight.ids, `${view.chart}:${focus}:${highlight.label}`)) ||
-        centerOf(layout.chart, focus, `${view.chart}:${focus}`);
+      ? { x: 0, y: layout.fan.full ? 0 : -layout.fan.radius / 2, seq }
+      : layout.kind === 'art'
+        ? { x: 0, y: (layout.bounds.minY + layout.bounds.maxY) / 2, seq }
+        : (highlight && centerOfPath(layout.chart, highlight.ids, `${seq}:${highlight.label}`)) || centerOf(layout.chart, focus, seq);
 
   return (
     <>
@@ -70,6 +79,8 @@ export function TreeChart() {
         {(vp) =>
           layout.kind === 'fan' ? (
             <FanContent tree={tree} fan={layout.fan} selectedId={selectedId} tints={tints} />
+          ) : layout.kind === 'art' ? (
+            <ArtTreeContent tree={tree} layout={layout.art} vp={vp} selectedId={selectedId} tints={tints} />
           ) : (
             <CardsContent tree={tree} chart={layout.chart} vp={vp} selectedId={selectedId} focusId={focus} onQuickAdd={add} tints={tints} />
           )
@@ -88,34 +99,6 @@ export function TreeChart() {
       <CardContextMenu onAdd={add} />
     </>
   );
-}
-
-/** Правая кнопка мыши и долгое нажатие пальцем — меню действий с человеком */
-function contextMenuHandlers(personId: string) {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  let start: { x: number; y: number } | null = null;
-  const cancel = () => {
-    clearTimeout(timer);
-    start = null;
-  };
-  return {
-    onContextMenu: (e: React.MouseEvent) => {
-      e.preventDefault();
-      openContextMenu({ personId, x: e.clientX, y: e.clientY });
-    },
-    onPointerDown: (e: React.PointerEvent) => {
-      if (e.pointerType !== 'touch') return;
-      start = { x: e.clientX, y: e.clientY };
-      const { clientX, clientY } = e;
-      timer = setTimeout(() => openContextMenu({ personId, x: clientX, y: clientY }), 550);
-    },
-    onPointerMove: (e: React.PointerEvent) => {
-      // Палец сдвинулся — это перетаскивание схемы, а не долгое нажатие
-      if (start && Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) cancel();
-    },
-    onPointerUp: cancel,
-    onPointerCancel: cancel,
-  };
 }
 
 /** Цвет линии (отцовская, материнская, своя) — переменные темы */
@@ -155,7 +138,9 @@ function ColorLegend({ tree, mode, layout }: { tree: TreeData; mode: ColorMode; 
     const ids =
       layout.kind === 'fan'
         ? [layout.fan.rootId, ...layout.fan.segments.map((s) => s.personId)]
-        : layout.chart.cards.map((c) => c.personId);
+        : layout.kind === 'art'
+          ? layout.art.nodes.flatMap((n) => [n.personId, ...n.spouses])
+          : layout.chart.cards.map((c) => c.personId);
     const palette = surnameColors(tree);
     const count = new Map<string, { label: string; color: string; n: number }>();
     for (const id of new Set(ids)) {
@@ -189,20 +174,27 @@ function ColorLegend({ tree, mode, layout }: { tree: TreeData; mode: ColorMode; 
 
 export type Computed =
   | { kind: 'cards'; chart: ChartLayout; bounds: Bounds }
-  | { kind: 'fan'; fan: ReturnType<typeof layoutFan>; bounds: Bounds };
+  | { kind: 'fan'; fan: ReturnType<typeof layoutFan>; bounds: Bounds }
+  | { kind: 'art'; art: ArtTreeLayout; bounds: Bounds };
 
-export function computeLayout(tree: TreeData, chart: ChartKind, focus: string, up: number, down: number): Computed {
-  if (chart === 'fan') {
-    const fan = layoutFan(tree, focus, up);
+export function computeLayout(tree: TreeData, chart: ChartKind, focus: string, up: number, down: number, horizontal = false): Computed {
+  if (chart === 'fan' || chart === 'circle') {
+    const fan = chart === 'fan' ? layoutFan(tree, focus, up) : layoutCircle(tree, focus, down);
     const r = Math.max(fan.radius, FAN_CENTER_R);
-    return { kind: 'fan', fan, bounds: { minX: -r, minY: -r, maxX: r, maxY: FAN_CENTER_R } };
+    return { kind: 'fan', fan, bounds: { minX: -r, minY: -r, maxX: r, maxY: fan.full ? r : FAN_CENTER_R } };
+  }
+  if (chart === 'tree') {
+    const art = layoutArtTree(tree, focus, down);
+    return { kind: 'art', art, bounds: art.bounds };
   }
   const layout =
-    chart === 'ancestors'
-      ? layoutAncestors(tree, focus, up)
-      : chart === 'descendants'
-        ? layoutDescendants(tree, focus, down)
-        : layoutFamily(tree, focus, up, down);
+    chart === 'butterfly'
+      ? layoutButterfly(tree, focus, up, down)
+      : chart === 'ancestors'
+        ? layoutAncestors(tree, focus, up, horizontal)
+        : chart === 'descendants'
+          ? layoutDescendants(tree, focus, down, horizontal)
+          : layoutFamily(tree, focus, up, down, horizontal);
   return { kind: 'cards', chart: layout, bounds: layout.bounds };
 }
 
@@ -411,27 +403,32 @@ const Card = memo(function Card({
           </text>
         </g>
       )}
-      {box.moreAbove && (
-        <g className="more" onClick={(e) => (e.stopPropagation(), setFocus(person.id))}>
-          <title>{t('tree.moreAbove')}</title>
-          <circle cx={CARD_W / 2} cy={0} r={9} />
-          <text x={CARD_W / 2} y={4} textAnchor="middle">
-            ▲
-          </text>
-        </g>
-      )}
-      {box.moreBelow && (
-        <g className="more" onClick={(e) => (e.stopPropagation(), setFocus(person.id))}>
-          <title>{t('tree.moreBelow')}</title>
-          <circle cx={CARD_W / 2} cy={CARD_H} r={9} />
-          <text x={CARD_W / 2} y={CARD_H + 4} textAnchor="middle">
-            ▼
-          </text>
-        </g>
-      )}
+      {box.moreAbove && <MoreMark box={box} up title={t('tree.moreAbove')} onClick={() => setFocus(person.id)} />}
+      {box.moreBelow && <MoreMark box={box} up={false} title={t('tree.moreBelow')} onClick={() => setFocus(person.id)} />}
     </g>
   );
 });
+
+/** Кружок «есть ещё предки/потомки»: сверху/снизу карточки, в горизонтальной схеме — сбоку */
+function MoreMark({ box, up, title, onClick }: { box: CardBox; up: boolean; title: string; onClick: () => void }) {
+  // Куда смотрит стрелка: в «h» предки слева, в «hr» — справа
+  const side = box.dir === 'h' ? (up ? 'left' : 'right') : box.dir === 'hr' ? (up ? 'right' : 'left') : up ? 'top' : 'bottom';
+  const pos = {
+    top: { x: CARD_W / 2, y: 0, ch: '▲' },
+    bottom: { x: CARD_W / 2, y: CARD_H, ch: '▼' },
+    left: { x: 0, y: CARD_H / 2, ch: '◀' },
+    right: { x: CARD_W, y: CARD_H / 2, ch: '▶' },
+  }[side];
+  return (
+    <g className="more" onClick={(e) => (e.stopPropagation(), onClick())}>
+      <title>{title}</title>
+      <circle cx={pos.x} cy={pos.y} r={9} />
+      <text x={pos.x} y={pos.y + 4} textAnchor="middle">
+        {pos.ch}
+      </text>
+    </g>
+  );
+}
 
 // ─── Веер ───────────────────────────────────────────────────────────────────
 
@@ -475,8 +472,9 @@ export function FanContent({
         const arcLen = rMid * (s.end - s.start);
         // Узкие доли — текст вдоль радиуса, широкие — поперёк
         const radial = arcLen < 110;
-        const deg = (mid * 180) / Math.PI;
-        const rotate = radial ? (deg > 270 ? deg : deg + 180) : deg + 90;
+        // Угол 0..360; текст не должен оказаться вверх ногами ни на одной стороне круга
+        const deg = ((((mid * 180) / Math.PI) % 360) + 360) % 360;
+        const rotate = radial ? (deg > 90 && deg < 270 ? deg + 180 : deg) : deg > 0 && deg < 180 ? deg - 90 : deg + 90;
         const maxChars = Math.max(3, Math.floor((radial ? s.outer - s.inner - 8 : arcLen - 10) / 7));
         const cls = ['fan-seg', `card-${person.sex}`, person.id === selectedId && 'selected', s.duplicate && 'duplicate']
           .filter(Boolean)

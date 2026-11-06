@@ -12,7 +12,7 @@ import {
   type PaperName,
 } from '../../print/tiling';
 import { useApp } from '../../state/store';
-import { useView } from '../../state/view';
+import { useView, ROTATABLE } from '../../state/view';
 import { useDateLocale } from '../format';
 import { Modal } from '../Modal';
 import { computeLayout, type Computed } from '../tree/TreeChart';
@@ -43,8 +43,8 @@ export function PrintDialog({ onClose }: { onClose: () => void }) {
   const [printing, setPrinting] = useState(false);
 
   const computed = useMemo(
-    () => (focus ? computeLayout(tree, view.chart, focus, view.up, view.down) : null),
-    [tree, focus, view.chart, view.up, view.down],
+    () => (focus ? computeLayout(tree, view.chart, focus, view.up, view.down, view.horizontal && ROTATABLE.includes(view.chart)) : null),
+    [tree, focus, view.chart, view.up, view.down, view.horizontal],
   );
   if (!computed) return null;
   const size = { width: computed.bounds.maxX - computed.bounds.minX, height: computed.bounds.maxY - computed.bounds.minY };
@@ -192,6 +192,10 @@ function PosterPreview({ computed, mode, tilesPlan }: { computed: Computed; mode
       <g transform={`translate(${PADDING - b.minX} ${PADDING - b.minY})`}>
         {computed.kind === 'cards' ? (
           computed.chart.cards.map((c) => <rect key={c.key} x={c.x} y={c.y} width={CARD_W} height={CARD_H} rx={10} className="scheme-card" />)
+        ) : computed.kind === 'art' ? (
+          computed.art.nodes.map((n) => <circle key={n.key} cx={n.x} cy={n.y} r={n.r} className="scheme-card" />)
+        ) : computed.fan.full ? (
+          <circle r={computed.fan.radius} className="scheme-card" />
         ) : (
           <path d={`M ${-computed.fan.radius} 0 A ${computed.fan.radius} ${computed.fan.radius} 0 0 1 ${computed.fan.radius} 0 Z`} className="scheme-card" />
         )}

@@ -1,6 +1,7 @@
 import {
   CalendarDays,
   ChartColumn,
+  ChartGantt,
   CircleCheck,
   CircleExclamationPoint,
   Ellipsis,
@@ -38,7 +39,7 @@ import {
   type Session,
 } from '../state/store';
 import { openHelp, setHighlight } from '../state/ui';
-import { setView, useView, type ViewMode } from '../state/view';
+import { setView, useView, VIEW_MODES, type ViewMode } from '../state/view';
 import { CalendarView, TodayBanner } from './calendar/CalendarView';
 import { ExportGedcomDialog, ImportReportDialog } from './GedcomDialogs';
 import { IssuesButton, IssuesDialog } from './IssuesView';
@@ -52,6 +53,7 @@ import { PrintDialog } from './print/PrintDialog';
 import { SnapshotsDialog } from './SnapshotsDialog';
 import { StatsDialog } from './StatsDialog';
 import { TopBar } from './TopBar';
+import { TimelineView } from './timeline/TimelineView';
 import { TreeChart } from './tree/TreeChart';
 import { TreeToolbar } from './tree/TreeToolbar';
 
@@ -60,7 +62,7 @@ const REMIND_AFTER_MIN = 15;
 
 type DialogName = 'password' | 'snapshots' | 'close' | 'issues' | 'kinship' | 'gedcom' | 'print' | 'first' | 'stats' | null;
 
-const MODE_ICON: Record<ViewMode, typeof Network> = { tree: Network, list: List, calendar: CalendarDays };
+const MODE_ICON: Record<ViewMode, typeof Network> = { tree: Network, list: List, calendar: CalendarDays, timeline: ChartGantt };
 const ICON = { size: 18, strokeWidth: 1.75 } as const;
 
 export function Workspace() {
@@ -220,7 +222,7 @@ export function Workspace() {
 
       <div className="view-bar">
         <div className="segmented" role="tablist" aria-label={t('view.label')}>
-          {(['tree', 'list', 'calendar'] as const).map((m) => {
+          {VIEW_MODES.map((m) => {
             const Icon = MODE_ICON[m];
             return (
               <button
@@ -270,6 +272,8 @@ export function Workspace() {
           <div className="chart-area">
             {view.mode === 'calendar' ? (
               <CalendarView />
+            ) : view.mode === 'timeline' ? (
+              <TimelineView />
             ) : (
               <>
                 <TreeChart />

@@ -1,19 +1,49 @@
-import { ArrowDownFromLine, ArrowUpFromLine, ChevronsDown, ChevronsUp, Fan, Palette, Search, Users } from 'lucide-react';
+import {
+  ArrowDownFromLine,
+  ArrowUpFromLine,
+  ChevronsDown,
+  ChevronsUp,
+  Fan,
+  Orbit,
+  Palette,
+  RotateCw,
+  Search,
+  TreeDeciduous,
+  Users,
+  type LucideProps,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { matchesQuery, sortKey } from '../../model/queries';
 import { setFocus, useApp } from '../../state/store';
-import { GEN_MAX, GEN_MIN, setView, useView, type ChartKind, type ColorMode } from '../../state/view';
+import { CHART_KINDS, GEN_MAX, GEN_MIN, ROTATABLE, setView, useView, type ChartKind, type ColorMode } from '../../state/view';
 import { lifespan, useNameOf } from '../format';
 import { Avatar } from '../media';
 
-const CHARTS: ChartKind[] = ['family', 'ancestors', 'descendants', 'fan'];
-const CHART_ICON: Record<ChartKind, typeof Users> = {
+/** Значок «бабочки» (в наборе Lucide такого нет) — в том же стиле: контур 24×24 */
+function ButterflyIcon({ size = 24, strokeWidth = 2 }: LucideProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 8v10" />
+      <path d="M12 9C10 5 4 3 3 6c-1 3 2 6 6 6-3 1-4 5-1 6 2 .5 4-2 4-5" />
+      <path d="M12 9c2-4 8-6 9-3 1 3-2 6-6 6 3 1 4 5 1 6-2 .5-4-2-4-5" />
+    </svg>
+  );
+}
+
+const CHARTS = CHART_KINDS;
+const CHART_ICON: Record<ChartKind, (p: LucideProps) => React.ReactNode> = {
   family: Users,
   ancestors: ArrowUpFromLine,
   descendants: ArrowDownFromLine,
+  butterfly: ButterflyIcon,
   fan: Fan,
+  circle: Orbit,
+  tree: TreeDeciduous,
 };
+/** Каким видам нужны поколения вверх / вниз */
+const USES_UP: ChartKind[] = ['family', 'ancestors', 'butterfly', 'fan'];
+const USES_DOWN: ChartKind[] = ['family', 'descendants', 'butterfly', 'circle', 'tree'];
 const COLORS: ColorMode[] = ['sex', 'line', 'surname'];
 const GENS = Array.from({ length: GEN_MAX - GEN_MIN + 1 }, (_, i) => GEN_MIN + i);
 
@@ -21,12 +51,13 @@ const GENS = Array.from({ length: GEN_MAX - GEN_MIN + 1 }, (_, i) => GEN_MIN + i
 export function TreeToolbar() {
   const { t } = useTranslation();
   const view = useView();
-  const showUp = view.chart !== 'descendants';
-  const showDown = view.chart === 'family' || view.chart === 'descendants';
+  const showUp = USES_UP.includes(view.chart);
+  const showDown = USES_DOWN.includes(view.chart);
+  const rotatable = ROTATABLE.includes(view.chart);
 
   return (
     <div className="tree-toolbar">
-      <div className="segmented" role="tablist" aria-label={t('chart.kind')}>
+      <div className="segmented chart-seg" role="tablist" aria-label={t('chart.kind')}>
         {CHARTS.map((c) => {
           const Icon = CHART_ICON[c];
           return (
@@ -45,6 +76,18 @@ export function TreeToolbar() {
           );
         })}
       </div>
+      {rotatable && (
+        <button
+          type="button"
+          className={view.horizontal ? 'icon-btn rotate-btn active' : 'icon-btn rotate-btn'}
+          onClick={() => setView({ horizontal: !view.horizontal })}
+          aria-pressed={view.horizontal}
+          title={t('chart.rotate')}
+          aria-label={t('chart.rotate')}
+        >
+          <RotateCw size={16} strokeWidth={1.75} />
+        </button>
+      )}
       {showUp && (
         <label className="gen-control" title={t('chart.up')}>
           <ChevronsUp size={16} strokeWidth={1.75} aria-hidden="true" />

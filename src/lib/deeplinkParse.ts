@@ -1,9 +1,9 @@
-import type { ChartKind, ViewMode } from '../state/view';
+import { CHART_KINDS, VIEW_MODES, type ChartKind, type ViewMode } from '../state/viewKinds';
 
 // Разбор адреса «#demo&chart=fan&lang=en» — отдельно, без обращений к браузеру (для тестов).
 
-const CHARTS: ChartKind[] = ['family', 'ancestors', 'descendants', 'fan'];
-const MODES: ViewMode[] = ['tree', 'list', 'calendar'];
+const CHARTS = CHART_KINDS;
+const MODES = VIEW_MODES;
 
 export interface DeepLink {
   demo: boolean;

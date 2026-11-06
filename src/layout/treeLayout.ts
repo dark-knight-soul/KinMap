@@ -6,7 +6,6 @@ import {
   CARD_W,
   COUPLE_GAP,
   H_GAP,
-  ROW,
   V_GAP,
   boundsOf,
   type CardBox,
@@ -25,8 +24,63 @@ import {
 //   descendants — потомки человека вниз (с супругами);
 //   ancestors   — предки вверх;
 //   family      — «песочные часы»: предки сверху, потомки снизу, братья и сёстры рядом.
+//
+// Горизонтальный вариант (предки слева, потомки справа) считается той же раскладкой
+// в «повёрнутых» размерах: вдоль полосы карточка занимает свою высоту, поколение — ширину.
+// Потом x и y меняются местами.
 
-const SPOUSE_STEP = CARD_W + COUPLE_GAP;
+interface Dims {
+  /** Размер карточки вдоль полосы (поперёк поколений) */
+  w: number;
+  /** Размер карточки вдоль оси поколений */
+  h: number;
+  hGap: number;
+  coupleGap: number;
+  vGap: number;
+}
+
+const VERTICAL: Dims = { w: CARD_W, h: CARD_H, hGap: H_GAP, coupleGap: COUPLE_GAP, vGap: V_GAP };
+const HORIZONTAL: Dims = { w: CARD_H, h: CARD_W, hGap: 14, coupleGap: 10, vGap: 56 };
+
+// Текущие размеры. Раскладка синхронная, поэтому общая переменная безопасна:
+// её выставляет и возвращает обратно withDims() вокруг каждого вызова.
+let D: Dims = VERTICAL;
+const ROW_ = () => D.h + D.vGap;
+const SPOUSE_STEP_ = () => D.w + D.coupleGap;
+
+function withDims(horizontal: boolean, build: () => ChartLayout): ChartLayout {
+  const prev = D;
+  D = horizontal ? HORIZONTAL : VERTICAL;
+  try {
+    const out = build();
+    return horizontal ? transpose(out) : out;
+  } finally {
+    D = prev;
+  }
+}
+
+/** Поворот раскладки: x ↔ y. Карточки получают пометку направления (для стрелок «есть ещё») */
+export function transpose(l: ChartLayout): ChartLayout {
+  const cards = l.cards.map((c) => ({ ...c, x: c.y, y: c.x, dir: 'h' as const }));
+  const lines = l.lines.map((ln) => ({ ...ln, points: ln.points.map(([x, y]) => [y, x] as [number, number]) }));
+  return { cards, lines, bounds: boundsOf(cards) };
+}
+
+/** Рамка карточек в текущих размерах */
+function boundsD(cards: CardBox[]) {
+  if (!cards.length) return { minX: 0, minY: 0, maxX: D.w, maxY: D.h };
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const c of cards) {
+    minX = Math.min(minX, c.x);
+    minY = Math.min(minY, c.y);
+    maxX = Math.max(maxX, c.x + D.w);
+    maxY = Math.max(maxY, c.y + D.h);
+  }
+  return { minX, minY, maxX, maxY };
+}
 
 const byBirth = (tree: TreeData) => (a: PersonId, b: PersonId) =>
   (approxYear(tree.people[a]?.birth?.date) ?? 99999) - (approxYear(tree.people[b]?.birth?.date) ?? 99999);
@@ -47,7 +101,7 @@ class Builder {
   }
 
   result(): ChartLayout {
-    return { cards: this.cards, lines: this.lines, bounds: boundsOf(this.cards) };
+    return { cards: this.cards, lines: this.lines, bounds: boundsD(this.cards) };
   }
 }
 
@@ -83,7 +137,7 @@ const orderedUnions = (n: DNode) => [...[...n.left].reverse(), ...n.single, ...n
 function buildDesc(tree: TreeData, id: PersonId, depth: number, maxDepth: number, expanded: Set<PersonId>): DNode {
   const duplicate = expanded.has(id);
   expanded.add(id);
-  const node: DNode = { id, duplicate, moreBelow: false, left: [], right: [], single: [], unitWidth: CARD_W, width: CARD_W };
+  const node: DNode = { id, duplicate, moreBelow: false, left: [], right: [], single: [], unitWidth: D.w, width: D.w };
   if (duplicate) return node;
 
   const sort = byBirth(tree);
@@ -100,7 +154,7 @@ function buildDesc(tree: TreeData, id: PersonId, depth: number, maxDepth: number
     } else if (family.children.length) {
       node.moreBelow = true;
     }
-    const width = children.reduce((s, c) => s + c.node.width, 0) + H_GAP * Math.max(0, children.length - 1);
+    const width = children.reduce((s, c) => s + c.node.width, 0) + D.hGap * Math.max(0, children.length - 1);
     const union: DUnion = { family, spouseId, children, width };
     if (!spouseId) node.single.push(union);
     else if (spouseIndex++ % 2 === 0) node.right.push(union);
@@ -108,28 +162,28 @@ function buildDesc(tree: TreeData, id: PersonId, depth: number, maxDepth: number
   }
 
   const spouses = node.left.length + node.right.length;
-  node.unitWidth = CARD_W + spouses * SPOUSE_STEP;
+  node.unitWidth = D.w + spouses * SPOUSE_STEP_();
   const blocks = orderedUnions(node).filter((u) => u.width > 0);
-  const childrenWidth = blocks.reduce((s, u) => s + u.width, 0) + H_GAP * Math.max(0, blocks.length - 1);
+  const childrenWidth = blocks.reduce((s, u) => s + u.width, 0) + D.hGap * Math.max(0, blocks.length - 1);
   node.width = Math.max(node.unitWidth, childrenWidth);
   return node;
 }
 
 /** Расставить узел потомков в полосе [left, left + width]. Возвращает центр карточки человека */
 function placeDesc(b: Builder, n: DNode, left: number, depth: number, role: CardBox['role'] = 'main'): number {
-  const y = depth * ROW;
+  const y = depth * ROW_();
   const unitLeft = left + (n.width - n.unitWidth) / 2;
-  const personX = unitLeft + n.left.length * SPOUSE_STEP;
+  const personX = unitLeft + n.left.length * SPOUSE_STEP_();
   b.card({ personId: n.id, x: personX, y, role, duplicate: n.duplicate || undefined, moreBelow: n.moreBelow || undefined });
-  const personCx = personX + CARD_W / 2;
-  const midY = y + CARD_H / 2;
+  const personCx = personX + D.w / 2;
+  const midY = y + D.h / 2;
 
   // Супруги и точка, откуда идёт линия к детям каждого союза
   const dropX = new Map<DUnion, number>();
   const placeSpouse = (u: DUnion, i: number, side: -1 | 1) => {
-    const x = personX + side * (i + 1) * SPOUSE_STEP;
+    const x = personX + side * (i + 1) * SPOUSE_STEP_();
     b.card({ personId: u.spouseId!, x, y, role: 'spouse' });
-    const spouseCx = x + CARD_W / 2;
+    const spouseCx = x + D.w / 2;
     // Линия пары (проходит «под» карточками, видна в промежутках)
     b.line(
       [
@@ -139,7 +193,7 @@ function placeDesc(b: Builder, n: DNode, left: number, depth: number, role: Card
       u.family.status === 'divorced',
     );
     // Точка в промежутке рядом с этим супругом
-    dropX.set(u, side === 1 ? x - COUPLE_GAP / 2 : x + CARD_W + COUPLE_GAP / 2);
+    dropX.set(u, side === 1 ? x - D.coupleGap / 2 : x + D.w + D.coupleGap / 2);
   };
   n.right.forEach((u, i) => placeSpouse(u, i, 1));
   n.left.forEach((u, i) => placeSpouse(u, i, -1));
@@ -147,19 +201,19 @@ function placeDesc(b: Builder, n: DNode, left: number, depth: number, role: Card
 
   // Дети
   const blocks = orderedUnions(n).filter((u) => u.width > 0);
-  const total = blocks.reduce((s, u) => s + u.width, 0) + H_GAP * Math.max(0, blocks.length - 1);
+  const total = blocks.reduce((s, u) => s + u.width, 0) + D.hGap * Math.max(0, blocks.length - 1);
   let cursor = left + (n.width - total) / 2;
   blocks.forEach((u, ui) => {
     const centers: { cx: number; dashed: boolean }[] = [];
     for (const c of u.children) {
       centers.push({ cx: placeDesc(b, c.node, cursor, depth + 1), dashed: c.relation !== 'birth' });
-      cursor += c.node.width + H_GAP;
+      cursor += c.node.width + D.hGap;
     }
     // Промежуток между блоками союзов уже добавлен после последнего ребёнка
     const dx = dropX.get(u)!;
-    const startY = u.spouseId ? midY : y + CARD_H;
+    const startY = u.spouseId ? midY : y + D.h;
     // Шины разных союзов чуть смещаем по высоте, чтобы не сливались
-    const busY = y + CARD_H + V_GAP / 2 + (ui - (blocks.length - 1) / 2) * 6;
+    const busY = y + D.h + D.vGap / 2 + (ui - (blocks.length - 1) / 2) * 6;
     const xs = [dx, ...centers.map((c) => c.cx)];
     b.line([
       [dx, startY],
@@ -173,7 +227,7 @@ function placeDesc(b: Builder, n: DNode, left: number, depth: number, role: Card
       b.line(
         [
           [c.cx, busY],
-          [c.cx, (depth + 1) * ROW],
+          [c.cx, (depth + 1) * ROW_()],
         ],
         c.dashed,
       );
@@ -182,7 +236,11 @@ function placeDesc(b: Builder, n: DNode, left: number, depth: number, role: Card
   return personCx;
 }
 
-export function layoutDescendants(tree: TreeData, rootId: PersonId, maxDepth: number): ChartLayout {
+export function layoutDescendants(tree: TreeData, rootId: PersonId, maxDepth: number, horizontal = false): ChartLayout {
+  return withDims(horizontal, () => descendantsRaw(tree, rootId, maxDepth));
+}
+
+function descendantsRaw(tree: TreeData, rootId: PersonId, maxDepth: number): ChartLayout {
   const b = new Builder();
   if (!tree.people[rootId]) return b.result();
   const root = buildDesc(tree, rootId, 0, maxDepth, new Set());
@@ -225,7 +283,7 @@ function sortParents(tree: TreeData, ids: PersonId[]): PersonId[] {
 function buildAnc(tree: TreeData, id: PersonId, gen: number, maxGen: number, seen: Set<PersonId>): ANode {
   const duplicate = seen.has(id);
   seen.add(id);
-  const node: ANode = { id, duplicate, moreAbove: false, parents: [], relation: 'birth', width: CARD_W };
+  const node: ANode = { id, duplicate, moreAbove: false, parents: [], relation: 'birth', width: D.w };
   if (duplicate) return node;
   const pf = mainParentFamily(tree, id);
   if (!pf) return node;
@@ -237,23 +295,23 @@ function buildAnc(tree: TreeData, id: PersonId, gen: number, maxGen: number, see
     return node;
   }
   node.parents = parentIds.map((p) => buildAnc(tree, p, gen + 1, maxGen, seen));
-  const sum = node.parents.reduce((s, p) => s + p.width, 0) + H_GAP * Math.max(0, node.parents.length - 1);
-  node.width = Math.max(CARD_W, sum);
+  const sum = node.parents.reduce((s, p) => s + p.width, 0) + D.hGap * Math.max(0, node.parents.length - 1);
+  node.width = Math.max(D.w, sum);
   return node;
 }
 
 function placeAnc(b: Builder, n: ANode, left: number, gen: number, skipSelf = false): number {
-  const y = -gen * ROW;
+  const y = -gen * ROW_();
   let cx = left + n.width / 2;
   if (n.parents.length) {
-    const total = n.parents.reduce((s, p) => s + p.width, 0) + H_GAP * (n.parents.length - 1);
+    const total = n.parents.reduce((s, p) => s + p.width, 0) + D.hGap * (n.parents.length - 1);
     let cursor = left + (n.width - total) / 2;
     const centers = n.parents.map((p) => {
       const c = placeAnc(b, p, cursor, gen + 1);
-      cursor += p.width + H_GAP;
+      cursor += p.width + D.hGap;
       return c;
     });
-    const parentMidY = y - ROW + CARD_H / 2;
+    const parentMidY = y - ROW_() + D.h / 2;
     if (centers.length === 2) {
       b.line(
         [
@@ -274,21 +332,25 @@ function placeAnc(b: Builder, n: ANode, left: number, gen: number, skipSelf = fa
       cx = centers[0]!;
       b.line(
         [
-          [cx, y - V_GAP],
+          [cx, y - D.vGap],
           [cx, y],
         ],
         n.relation !== 'birth',
       );
     }
   }
-  const x = Math.min(Math.max(cx - CARD_W / 2, left), left + n.width - CARD_W);
+  const x = Math.min(Math.max(cx - D.w / 2, left), left + n.width - D.w);
   if (!skipSelf) {
     b.card({ personId: n.id, x, y, role: 'main', duplicate: n.duplicate || undefined, moreAbove: n.moreAbove || undefined });
   }
-  return x + CARD_W / 2;
+  return x + D.w / 2;
 }
 
-export function layoutAncestors(tree: TreeData, rootId: PersonId, maxGen: number): ChartLayout {
+export function layoutAncestors(tree: TreeData, rootId: PersonId, maxGen: number, horizontal = false): ChartLayout {
+  return withDims(horizontal, () => ancestorsRaw(tree, rootId, maxGen));
+}
+
+function ancestorsRaw(tree: TreeData, rootId: PersonId, maxGen: number): ChartLayout {
   const b = new Builder();
   if (!tree.people[rootId]) return b.result();
   placeAnc(b, buildAnc(tree, rootId, 0, maxGen, new Set()), 0, 0);
@@ -297,7 +359,11 @@ export function layoutAncestors(tree: TreeData, rootId: PersonId, maxGen: number
 
 // ─── «Песочные часы»: предки + потомки + братья и сёстры ────────────────────
 
-export function layoutFamily(tree: TreeData, focusId: PersonId, up: number, down: number): ChartLayout {
+export function layoutFamily(tree: TreeData, focusId: PersonId, up: number, down: number, horizontal = false): ChartLayout {
+  return withDims(horizontal, () => familyRaw(tree, focusId, up, down));
+}
+
+function familyRaw(tree: TreeData, focusId: PersonId, up: number, down: number): ChartLayout {
   const b = new Builder();
   if (!tree.people[focusId]) return b.result();
 
@@ -329,23 +395,23 @@ export function layoutFamily(tree: TreeData, focusId: PersonId, up: number, down
   ];
   if (siblings.length) {
     const rowLeft = Math.min(...b.cards.filter((c) => c.y === 0).map((c) => c.x));
-    const busY = -V_GAP / 2;
+    const busY = -D.vGap / 2;
     const hasParents = anc.parents.length > 0;
     siblings.forEach((s, i) => {
-      const x = rowLeft - (siblings.length - i) * (CARD_W + H_GAP);
+      const x = rowLeft - (siblings.length - i) * (D.w + D.hGap);
       b.card({ personId: s.id, x, y: 0, role: s.half ? 'halfSibling' : 'sibling' });
       if (hasParents) {
         b.line(
           [
-            [x + CARD_W / 2, busY],
-            [x + CARD_W / 2, 0],
+            [x + D.w / 2, busY],
+            [x + D.w / 2, 0],
           ],
           s.half,
         );
       }
     });
     if (hasParents) {
-      const firstCx = rowLeft - siblings.length * (CARD_W + H_GAP) + CARD_W / 2;
+      const firstCx = rowLeft - siblings.length * (D.w + D.hGap) + D.w / 2;
       // Шина от братьев до линии, идущей от родителей к человеку
       const parentsDropX = findParentsDropX(b.lines, focusCx);
       b.line([
@@ -363,7 +429,7 @@ export function layoutFamily(tree: TreeData, focusId: PersonId, up: number, down
 function findParentsDropX(lines: LinkLine[], focusCx: number): number | undefined {
   for (const l of lines) {
     const last = l.points[l.points.length - 1]!;
-    if (last[1] === 0 && Math.abs(last[0] - focusCx) < CARD_W / 2) return last[0];
+    if (last[1] === 0 && Math.abs(last[0] - focusCx) < D.w / 2) return last[0];
   }
   return undefined;
 }

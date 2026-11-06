@@ -1,4 +1,6 @@
 import type { PersonId, TreeData } from '../model/types';
+import { approxYear } from '../model/dates';
+import { unionsOf } from '../model/queries';
 import { mainParentFamily } from './treeLayout';
 
 // Веерная схема предков: человек в центре, родители — первое кольцо,
@@ -28,6 +30,8 @@ export interface FanLayout {
   rootId: PersonId;
   segments: FanSegment[];
   radius: number;
+  /** Полный круг (круговая схема потомков), а не полукруг веера */
+  full?: boolean;
 }
 
 export function ringRadii(gen: number): [number, number] {
@@ -80,4 +84,63 @@ export function layoutFan(tree: TreeData, rootId: PersonId, maxGen: number): Fan
 
   if (tree.people[rootId]) visit(rootId, 0, 0);
   return { rootId, segments, radius: deepest ? ringRadii(deepest)[1] : FAN_CENTER_R };
+}
+
+// ─── Круговая схема потомков ────────────────────────────────────────────────
+// Человек в центре, дети — первое кольцо, внуки — второе… на полный круг (360°).
+// Доля каждого пропорциональна числу его «концевых» потомков: у кого больше
+// потомков, у того шире сектор, и внешние кольца не слипаются.
+
+interface CNode {
+  id: PersonId;
+  children: CNode[];
+  weight: number;
+  duplicate: boolean;
+}
+
+export function layoutCircle(tree: TreeData, rootId: PersonId, maxGen: number): FanLayout {
+  const segments: FanSegment[] = [];
+  if (!tree.people[rootId]) return { rootId, segments, radius: FAN_CENTER_R, full: true };
+  const seen = new Set<PersonId>();
+  const birth = (id: PersonId) => approxYear(tree.people[id]?.birth?.date) ?? 99999;
+
+  const build = (id: PersonId, gen: number): CNode => {
+    const duplicate = seen.has(id);
+    seen.add(id);
+    const node: CNode = { id, children: [], weight: 1, duplicate };
+    if (duplicate || gen >= maxGen) return node;
+    const kids = [...new Set(unionsOf(tree, id).flatMap((f) => f.children.map((c) => c.id)))]
+      .filter((c) => tree.people[c])
+      .sort((a, b) => birth(a) - birth(b));
+    node.children = kids.map((k) => build(k, gen + 1));
+    if (node.children.length) node.weight = node.children.reduce((s, c) => s + c.weight, 0);
+    return node;
+  };
+  const root = build(rootId, 0);
+
+  let deepest = 0;
+  // Начинаем сверху (−90°) и идём по часовой стрелке
+  const place = (n: CNode, gen: number, start: number, end: number) => {
+    let a = start;
+    for (const c of n.children) {
+      const span = ((end - start) * c.weight) / n.weight;
+      const g = gen + 1;
+      const [inner, outer] = ringRadii(g);
+      deepest = Math.max(deepest, g);
+      segments.push({
+        key: `${c.id}@${g}.${segments.length}`,
+        personId: c.id,
+        gen: g,
+        start: a,
+        end: a + span,
+        inner,
+        outer,
+        duplicate: c.duplicate || undefined,
+      });
+      place(c, g, a, a + span);
+      a += span;
+    }
+  };
+  place(root, 0, -Math.PI / 2, (3 * Math.PI) / 2);
+  return { rootId, segments, radius: deepest ? ringRadii(deepest)[1] : FAN_CENTER_R, full: true };
 }
