@@ -4,6 +4,7 @@ import {
   ChartColumn,
   ChartGantt,
   CircleCheck,
+  Combine,
   CircleExclamationPoint,
   Ellipsis,
   FileDown,
@@ -53,6 +54,7 @@ import { PersonEditor } from './PersonEditor';
 import { PrintDialog } from './print/PrintDialog';
 import { SnapshotsDialog } from './SnapshotsDialog';
 import { StatsDialog } from './StatsDialog';
+import { MergeTreesDialog } from './MergeTreesDialog';
 import { BookDialog } from './book/BookDialog';
 import { TopBar } from './TopBar';
 import { TimelineView } from './timeline/TimelineView';
@@ -62,7 +64,7 @@ import { TreeToolbar } from './tree/TreeToolbar';
 /** Через сколько минут без сохранения в файл показывать напоминание */
 const REMIND_AFTER_MIN = 15;
 
-type DialogName = 'password' | 'snapshots' | 'close' | 'issues' | 'kinship' | 'gedcom' | 'print' | 'first' | 'stats' | 'book' | null;
+type DialogName = 'password' | 'snapshots' | 'close' | 'issues' | 'kinship' | 'gedcom' | 'print' | 'first' | 'stats' | 'book' | 'mergeTrees' | null;
 
 const MODE_ICON: Record<ViewMode, typeof Network> = { tree: Network, list: List, calendar: CalendarDays, timeline: ChartGantt };
 const ICON = { size: 18, strokeWidth: 1.75 } as const;
@@ -192,6 +194,7 @@ export function Workspace() {
                       setDialog('print');
                     }, { disabled: !hasPeople })}
                     {menuItem(FileDown, t('toolbar.exportGedcom'), () => setDialog('gedcom'))}
+                    {menuItem(Combine, t('mergeTrees.menu'), () => setDialog('mergeTrees'))}
                     {menuItem(BookOpenText, t('book.menu'), () => setDialog('book'), { disabled: !hasPeople })}
                     {menuItem(ChartColumn, t('stats.title'), () => setDialog('stats'), { disabled: !hasPeople })}
                     <hr />
@@ -294,6 +297,7 @@ export function Workspace() {
       {dialog === 'issues' && <IssuesDialog onClose={() => setDialog(null)} />}
       {dialog === 'stats' && <StatsDialog onClose={() => setDialog(null)} />}
       {dialog === 'book' && hasPeople && <BookDialog onClose={() => setDialog(null)} />}
+      {dialog === 'mergeTrees' && <MergeTreesDialog onClose={() => setDialog(null)} />}
       {dialog === 'gedcom' && <ExportGedcomDialog onClose={() => setDialog(null)} />}
       {dialog === 'print' && hasPeople && <PrintDialog onClose={() => setDialog(null)} />}
       <ImportReportDialog />

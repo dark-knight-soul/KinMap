@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { readHint } from '../file/crypto';
-import { deserializeTree } from '../file/format';
+import { deserializeTree, type MediaStore } from '../file/format';
 import { pickFileToOpen, type OpenedFile } from '../file/io';
 import { LoadError } from '../model/validate';
 import type { TreeData } from '../model/types';
@@ -62,14 +62,14 @@ export function useOpenFlow() {
     }
   }
 
-  /** Импорт GEDCOM: новое древо + отчёт. Фото из GEDZIP сжимаются, как при обычном добавлении */
-  async function importGedcomInput(file: OpenedFile): Promise<void> {
+  /** GEDCOM → древо и фото (фото из GEDZIP сжимаются, как при обычном добавлении). null — не GEDCOM */
+  async function gedcomToTree(file: OpenedFile) {
     let result;
     try {
       result = importGedcomFile(file.bytes, file.name);
     } catch (e) {
       notify(`gedcom.errors.${e instanceof GedcomError ? e.code : 'notGedcom'}`, undefined, 'error');
-      return;
+      return null;
     }
     let tree = result.tree;
     const media: Record<string, Uint8Array> = {};
@@ -84,17 +84,46 @@ export function useOpenFlow() {
         photosFailed++;
       }
     }
+    return { tree, media, report: { ...result.report, photos: result.report.photos - photosFailed, photosFailed } };
+  }
+
+  /** Импорт GEDCOM: новое древо + отчёт */
+  async function importGedcomInput(file: OpenedFile): Promise<void> {
+    const r = await gedcomToTree(file);
+    if (!r) return;
     // Связь с исходным файлом не сохраняем: автосохранение не должно перезаписать .ged форматом .kinmap
-    await openSession({ tree, media, key: null, syncedWithFile: false, handle: null });
-    showImportReport({ ...result.report, photos: result.report.photos - photosFailed, photosFailed });
+    await openSession({ tree: r.tree, media: r.media, key: null, syncedWithFile: false, handle: null });
+    showImportReport(r.report);
+  }
+
+  const isGedcomFile = (file: OpenedFile) =>
+    !/\.kinmap$/i.test(file.name) && (looksLikeGedcom(file.bytes, file.name) || /\.(zip|gdz)$/i.test(file.name));
+
+  /**
+   * Прочитать второе древо для объединения (.kinmap — с вопросом пароля, или GEDCOM),
+   * не открывая его как отдельное древо. null — отмена или ошибка (сообщение уже показано)
+   */
+  async function loadForMerge(file: OpenedFile): Promise<{ tree: TreeData; media: MediaStore; name: string } | null> {
+    setBusy(true);
+    try {
+      if (isGedcomFile(file)) {
+        const r = await gedcomToTree(file);
+        return r && { tree: r.tree, media: r.media, name: file.name };
+      }
+      const decoded = await decode(file.bytes, file.name);
+      return decoded && { tree: decoded.tree, media: decoded.media, name: file.name };
+    } catch (e) {
+      showLoadError(e);
+      return null;
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function openFile(file: OpenedFile): Promise<void> {
     setBusy(true);
     try {
-      const isGedcom =
-        !/\.kinmap$/i.test(file.name) && (looksLikeGedcom(file.bytes, file.name) || /\.(zip|gdz)$/i.test(file.name));
-      if (isGedcom) {
+      if (isGedcomFile(file)) {
         await importGedcomInput(file);
         return;
       }
@@ -211,7 +240,7 @@ export function useOpenFlow() {
     </>
   );
 
-  return { openFile, pickAndOpen, continueCopy, busy, dialogs };
+  return { openFile, pickAndOpen, continueCopy, loadForMerge, busy, dialogs };
 }
 
 function PasswordPromptDialog({ args, onDone }: { args: PasswordArgs; onDone: (p: string | null) => void }) {

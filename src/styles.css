@@ -1643,3 +1643,24 @@ kbd {
 .book-index li { break-inside: avoid; display: flex; gap: 2mm; align-items: baseline; }
 .book-index li .book-refs { margin-left: auto; text-align: right; }
 .book-footer { margin-top: 10mm; font-size: 8.5pt; color: #777; text-align: center; }
+
+/* ─── 1.6: объединение древ ─── */
+.merge-pick { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px 0 12px; text-align: center; }
+.merge-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: var(--radius); background: var(--surface-2); margin-bottom: 8px; }
+.match-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; }
+.match { border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; opacity: 0.6; }
+.match.on { opacity: 1; border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.match-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; cursor: pointer; }
+.match-row input { margin: 0; }
+.match-person { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.match-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.match-reasons { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 0 28px; }
+.tag { font-size: 0.75rem; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.merge-new { margin-top: 10px; }
+.merge-new summary { cursor: pointer; font-weight: 600; }
+.merge-new ul { columns: 2; margin: 6px 0 0; padding-left: 20px; font-size: 0.9rem; }
+@media (max-width: 560px) {
+  .match-row { grid-template-columns: auto minmax(0, 1fr); }
+  .match-row > svg { display: none; }
+  .merge-new ul { columns: 1; }
+}
