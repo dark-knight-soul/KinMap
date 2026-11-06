@@ -1,9 +1,9 @@
-import { ArrowDownFromLine, ArrowUpFromLine, ChevronsDown, ChevronsUp, Fan, Search, Users } from 'lucide-react';
+import { ArrowDownFromLine, ArrowUpFromLine, ChevronsDown, ChevronsUp, Fan, Palette, Search, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { matchesQuery, sortKey } from '../../model/queries';
 import { setFocus, useApp } from '../../state/store';
-import { GEN_MAX, GEN_MIN, setView, useView, type ChartKind } from '../../state/view';
+import { GEN_MAX, GEN_MIN, setView, useView, type ChartKind, type ColorMode } from '../../state/view';
 import { lifespan, useNameOf } from '../format';
 import { Avatar } from '../media';
 
@@ -14,6 +14,7 @@ const CHART_ICON: Record<ChartKind, typeof Users> = {
   descendants: ArrowDownFromLine,
   fan: Fan,
 };
+const COLORS: ColorMode[] = ['sex', 'line', 'surname'];
 const GENS = Array.from({ length: GEN_MAX - GEN_MIN + 1 }, (_, i) => GEN_MIN + i);
 
 // Панель над схемой: вид схемы, сколько поколений, поиск человека.
@@ -68,6 +69,16 @@ export function TreeToolbar() {
           </select>
         </label>
       )}
+      <label className="gen-control" title={t('colors.title')}>
+        <Palette size={16} strokeWidth={1.75} aria-hidden="true" />
+        <select value={view.color} aria-label={t('colors.title')} onChange={(e) => setView({ color: e.target.value as ColorMode })}>
+          {COLORS.map((c) => (
+            <option key={c} value={c}>
+              {t(`colors.by_${c}`)}
+            </option>
+          ))}
+        </select>
+      </label>
       <PersonSearch />
     </div>
   );

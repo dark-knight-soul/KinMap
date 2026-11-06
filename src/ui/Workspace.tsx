@@ -1,5 +1,6 @@
 import {
   CalendarDays,
+  ChartColumn,
   CircleCheck,
   CircleExclamationPoint,
   Ellipsis,
@@ -36,7 +37,7 @@ import {
   useApp,
   type Session,
 } from '../state/store';
-import { openHelp } from '../state/ui';
+import { openHelp, setHighlight } from '../state/ui';
 import { setView, useView, type ViewMode } from '../state/view';
 import { CalendarView, TodayBanner } from './calendar/CalendarView';
 import { ExportGedcomDialog, ImportReportDialog } from './GedcomDialogs';
@@ -49,6 +50,7 @@ import { PeopleList } from './PeopleList';
 import { PersonEditor } from './PersonEditor';
 import { PrintDialog } from './print/PrintDialog';
 import { SnapshotsDialog } from './SnapshotsDialog';
+import { StatsDialog } from './StatsDialog';
 import { TopBar } from './TopBar';
 import { TreeChart } from './tree/TreeChart';
 import { TreeToolbar } from './tree/TreeToolbar';
@@ -56,7 +58,7 @@ import { TreeToolbar } from './tree/TreeToolbar';
 /** Через сколько минут без сохранения в файл показывать напоминание */
 const REMIND_AFTER_MIN = 15;
 
-type DialogName = 'password' | 'snapshots' | 'close' | 'issues' | 'kinship' | 'gedcom' | 'print' | 'first' | null;
+type DialogName = 'password' | 'snapshots' | 'close' | 'issues' | 'kinship' | 'gedcom' | 'print' | 'first' | 'stats' | null;
 
 const MODE_ICON: Record<ViewMode, typeof Network> = { tree: Network, list: List, calendar: CalendarDays };
 const ICON = { size: 18, strokeWidth: 1.75 } as const;
@@ -103,6 +105,9 @@ export function Workspace() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  // Подсветка пути относится к открытому древу — при закрытии сбрасываем
+  useEffect(() => () => setHighlight(null), []);
 
   // Предупреждение при закрытии вкладки, если файл отстаёт от изменений
   useEffect(() => {
@@ -183,6 +188,7 @@ export function Workspace() {
                       setDialog('print');
                     }, { disabled: !hasPeople })}
                     {menuItem(FileDown, t('toolbar.exportGedcom'), () => setDialog('gedcom'))}
+                    {menuItem(ChartColumn, t('stats.title'), () => setDialog('stats'), { disabled: !hasPeople })}
                     <hr />
                     {menuItem(Lock, session.key ? t('toolbar.passwordOn') : t('toolbar.password'), () => setDialog('password'))}
                     {menuItem(RotateCcwClock, t('toolbar.snapshots'), () => setDialog('snapshots'))}
@@ -279,6 +285,7 @@ export function Workspace() {
       {dialog === 'password' && <PasswordDialog onClose={() => setDialog(null)} />}
       {dialog === 'snapshots' && <SnapshotsDialog onClose={() => setDialog(null)} />}
       {dialog === 'issues' && <IssuesDialog onClose={() => setDialog(null)} />}
+      {dialog === 'stats' && <StatsDialog onClose={() => setDialog(null)} />}
       {dialog === 'gedcom' && <ExportGedcomDialog onClose={() => setDialog(null)} />}
       {dialog === 'print' && hasPeople && <PrintDialog onClose={() => setDialog(null)} />}
       <ImportReportDialog />

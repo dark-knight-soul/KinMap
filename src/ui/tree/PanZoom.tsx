@@ -1,7 +1,8 @@
-import { Maximize2, Minus, Plus } from 'lucide-react';
+import { Map as MapIcon, Maximize2, Minus, Plus } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Bounds } from '../../layout/types';
+import { setView, useView } from '../../state/view';
 
 // Холст с перемещением и масштабом (без внешних библиотек):
 //  - тянуть мышью / пальцем — двигать схему;
@@ -9,6 +10,7 @@ import type { Bounds } from '../../layout/types';
 //  - клавиши: + − 0 (вписать) и стрелки, когда холст в фокусе.
 // Содержимое рисуется функцией children(viewport) — ей передаётся видимая область
 // в координатах схемы, чтобы рисовать только то, что видно.
+// Мини-карта в углу показывает всё древо и рамку «где я»; по ней можно щёлкать и тянуть.
 
 export interface Viewport {
   minX: number;
@@ -22,6 +24,15 @@ interface Transform {
   x: number;
   y: number;
   k: number;
+}
+
+/** Прямоугольник для мини-карты (карточка в координатах схемы) */
+export interface MinimapRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  color?: string;
 }
 
 export interface CenterRequest {
@@ -45,6 +56,7 @@ export function PanZoom({
   children,
   label,
   onBackgroundClick,
+  minimap,
 }: {
   bounds: Bounds;
   center: CenterRequest | null;
@@ -52,7 +64,10 @@ export function PanZoom({
   label: string;
   /** Щелчок по пустому месту (не по карточке и без перетаскивания) */
   onBackgroundClick?: () => void;
+  /** Карточки для мини-карты; без них мини-карты нет */
+  minimap?: MinimapRect[];
 }) {
+  const showMinimap = useView().minimap;
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 800, h: 600 });
@@ -226,6 +241,12 @@ export function PanZoom({
     scale: tf.k,
   };
 
+  // Мини-карта нужна, только если древо не помещается на экране целиком
+  const treeW = bounds.maxX - bounds.minX;
+  const treeH = bounds.maxY - bounds.minY;
+  const overflows = treeW * tf.k > size.w - 20 || treeH * tf.k > size.h - 20;
+  const centerOn = (x: number, y: number) => setTf((cur) => ({ ...cur, x: size.w / 2 - x * cur.k, y: size.h / 2 - y * cur.k }));
+
   return (
     <div
       ref={ref}
@@ -256,6 +277,15 @@ export function PanZoom({
       >
         <g transform={`translate(${tf.x} ${tf.y}) scale(${tf.k})`}>{children(viewport)}</g>
       </svg>
+      {minimap && showMinimap && overflows && size.w > 480 && (
+        <Minimap
+          rects={minimap}
+          bounds={bounds}
+          view={{ x: -tf.x / tf.k, y: -tf.y / tf.k, w: size.w / tf.k, h: size.h / tf.k }}
+          onMove={centerOn}
+          label={t('zoom.minimap')}
+        />
+      )}
       <div className="zoom-controls" onPointerDown={(e) => e.stopPropagation()}>
         <button type="button" className="icon-btn" onClick={() => zoomAt(1.25, size.w / 2, size.h / 2)} title={t('zoom.in')} aria-label={t('zoom.in')}>
           <Plus size={18} strokeWidth={1.75} />
@@ -266,8 +296,90 @@ export function PanZoom({
         <button type="button" className="icon-btn" onClick={fit} title={t('zoom.fit')} aria-label={t('zoom.fit')}>
           <Maximize2 size={16} strokeWidth={1.75} />
         </button>
+        {minimap && (
+          <button
+            type="button"
+            className={showMinimap ? 'icon-btn active' : 'icon-btn'}
+            onClick={() => setView({ minimap: !showMinimap })}
+            title={t('zoom.minimap')}
+            aria-label={t('zoom.minimap')}
+            aria-pressed={showMinimap}
+          >
+            <MapIcon size={16} strokeWidth={1.75} />
+          </button>
+        )}
         <span className="zoom-level">{Math.round(tf.k * 100)}%</span>
       </div>
     </div>
+  );
+}
+
+const MINI_W = 180;
+const MINI_H = 120;
+
+/** Мини-карта: всё древо в маленьком масштабе + рамка видимой области */
+function Minimap({
+  rects,
+  bounds,
+  view,
+  onMove,
+  label,
+}: {
+  rects: MinimapRect[];
+  bounds: Bounds;
+  view: { x: number; y: number; w: number; h: number };
+  onMove: (x: number, y: number) => void;
+  label: string;
+}) {
+  const pad = 40;
+  const bw = bounds.maxX - bounds.minX + pad * 2;
+  const bh = bounds.maxY - bounds.minY + pad * 2;
+  const m = Math.min(MINI_W / bw, MINI_H / bh);
+  const w = Math.max(40, bw * m);
+  const h = Math.max(30, bh * m);
+  const dragging = useRef(false);
+
+  // Точка на мини-карте → координаты схемы
+  const toChart = (e: React.PointerEvent<SVGSVGElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return {
+      x: bounds.minX - pad + ((e.clientX - r.left) / r.width) * bw,
+      y: bounds.minY - pad + ((e.clientY - r.top) / r.height) * bh,
+    };
+  };
+
+  return (
+    <svg
+      className="minimap"
+      width={w}
+      height={h}
+      viewBox={`${bounds.minX - pad} ${bounds.minY - pad} ${bw} ${bh}`}
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={label}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        dragging.current = true;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        const p = toChart(e);
+        onMove(p.x, p.y);
+      }}
+      onPointerMove={(e) => {
+        if (!dragging.current) return;
+        e.stopPropagation();
+        const p = toChart(e);
+        onMove(p.x, p.y);
+      }}
+      onPointerUp={(e) => {
+        e.stopPropagation();
+        dragging.current = false;
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {rects.map((r, i) => (
+        <rect key={i} x={r.x} y={r.y} width={r.w} height={r.h} rx={12} className="minimap-card" style={r.color ? { fill: r.color } : undefined} />
+      ))}
+      <rect x={view.x} y={view.y} width={view.w} height={view.h} className="minimap-view" vectorEffect="non-scaling-stroke" />
+    </svg>
   );
 }

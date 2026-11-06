@@ -1,11 +1,13 @@
-import { ArrowLeftRight } from 'lucide-react';
+import { ArrowLeftRight, Route } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { bloodRelations, findKinship } from '../model/kinship';
+import { bloodRelations, findKinship, type Kinship } from '../model/kinship';
 import { bloodTermEn, bloodTermRu, nameKinship, stepLabel, type KinLang } from '../model/kinshipTerms';
 import { matchesQuery, sortKey } from '../model/queries';
 import type { PersonId, TreeData } from '../model/types';
-import { select, useApp } from '../state/store';
+import { select, setFocus, useApp } from '../state/store';
+import { setHighlight } from '../state/ui';
+import { GEN_MAX, setView } from '../state/view';
 import { lifespan, useDateLocale, useNameOf } from './format';
 import { Avatar } from './media';
 import { Modal } from './Modal';
@@ -82,7 +84,20 @@ export function KinshipDialog({ initialA, initialB, onClose }: { initialA?: Pers
                 />
               </div>
 
-              <h3 className="form-subtitle">{t('kin.path')}</h3>
+              <div className="kin-path-head">
+                <h3 className="form-subtitle">{t('kin.path')}</h3>
+                <button
+                  type="button"
+                  className="chip-btn"
+                  onClick={() => {
+                    showPathOnChart(result.there, `${nameOf(personB)} — ${result.forward.term} (${nameOf(personA)})`);
+                    onClose();
+                  }}
+                >
+                  <Route size={15} strokeWidth={1.75} />
+                  {t('kin.showOnChart')}
+                </button>
+              </div>
               <ol className="kin-path">
                 {result.there.path.map((id, i) => {
                   const p = tree.people[id]!;
@@ -143,7 +158,7 @@ function Answer({ who, term, exact, forWhom }: { who: string; term: string; exac
 }
 
 /** Выбор человека: поле поиска с подсказками */
-function PersonSelect({
+export function PersonSelect({
   tree,
   label,
   value,
@@ -182,7 +197,17 @@ function PersonSelect({
             setQuery('');
             setOpen(true);
           }}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            // Поле могло остаться в фокусе после выбора — при наборе снова открываем список
+            if (!open) setOpen(true);
+            setQuery(e.target.value);
+          }}
+          onClick={() => {
+            if (!open) {
+              setQuery('');
+              setOpen(true);
+            }
+          }}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && results[0]) {
@@ -217,4 +242,23 @@ function PersonSelect({
       </div>
     </div>
   );
+}
+
+/**
+ * Показать цепочку на схеме: выбираем вид, на котором она видна целиком
+ * (обычно — потомки общего предка), и подсвечиваем людей на пути.
+ */
+function showPathOnChart(k: Kinship, label: string) {
+  // Главный кровный участок — самый «высокий» (больше всего шагов вверх)
+  const seg = [...k.segments].sort((x, y) => y.up - x.up || y.down - x.down)[0];
+  if (!seg) return;
+  const focus = seg.top ?? (seg.up > 0 ? seg.end : seg.start);
+  // Если в цепочке есть браки — берём на поколение больше, чтобы попали супруги и их родня
+  const extra = k.segments.length > 1 ? 1 : 0;
+  const down = Math.min(GEN_MAX, Math.max(1, seg.up, seg.down) + extra);
+  setView({ mode: 'tree', chart: 'descendants', down });
+  setFocus(focus);
+  // Карточку справа не открываем — схеме нужно всё место
+  select(undefined);
+  setHighlight({ ids: k.path, label });
 }

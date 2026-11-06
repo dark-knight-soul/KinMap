@@ -1,4 +1,4 @@
-import { Crosshair, Heart, Link2, PanelRightOpen, Trash, UserPlus, Users } from 'lucide-react';
+import { Crosshair, GitBranch, Heart, Link2, Merge, PanelRightOpen, Trash, UserPlus, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CARD_H, CARD_W, type CardBox } from '../../layout/types';
@@ -8,7 +8,9 @@ import type { TreeData } from '../../model/types';
 import { apply, getState, select, setFocus, useApp } from '../../state/store';
 import { closeContextMenu, useUi } from '../../state/ui';
 import { useNameOf } from '../format';
+import { BranchDialog } from '../BranchDialog';
 import { KinshipDialog } from '../KinshipDialog';
+import { MergeDialog } from '../MergeDialog';
 import { ConfirmDialog } from '../Modal';
 import type { RelativeKind } from '../useAddRelative';
 
@@ -95,6 +97,8 @@ export function CardContextMenu({ onAdd }: { onAdd: (personId: string, kind: Rel
   const ref = useRef<HTMLDivElement>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [kinship, setKinship] = useState<string | null>(null);
+  const [merge, setMerge] = useState<string | null>(null);
+  const [branch, setBranch] = useState<string | null>(null);
 
   useEffect(() => {
     if (!menu) return;
@@ -119,7 +123,7 @@ export function CardContextMenu({ onAdd }: { onAdd: (personId: string, kind: Rel
   };
   // Меню не должно вылезать за край экрана
   const x = menu ? Math.min(menu.x, window.innerWidth - 240) : 0;
-  const y = menu ? Math.min(menu.y, window.innerHeight - 380) : 0;
+  const y = menu ? Math.min(menu.y, window.innerHeight - 460) : 0;
   const pk = person && tree ? parentKind(tree, person.id) : null;
   const rootId = tree?.rootPersonId;
 
@@ -158,6 +162,12 @@ export function CardContextMenu({ onAdd }: { onAdd: (personId: string, kind: Rel
             </>
           )}
           <hr />
+          <button type="button" role="menuitem" className="menu-item" onClick={run(() => setBranch(person.id))}>
+            <GitBranch size={16} strokeWidth={1.75} /> {t('branch.menu')}
+          </button>
+          <button type="button" role="menuitem" className="menu-item" onClick={run(() => setMerge(person.id))}>
+            <Merge size={16} strokeWidth={1.75} /> {t('merge.menu')}
+          </button>
           <button type="button" role="menuitem" className="menu-item menu-item-danger" onClick={run(() => setConfirm(person.id))}>
             <Trash size={16} strokeWidth={1.75} /> {t('person.delete')}
           </button>
@@ -179,6 +189,8 @@ export function CardContextMenu({ onAdd }: { onAdd: (personId: string, kind: Rel
         />
       )}
       {kinship && rootId && <KinshipDialog initialA={rootId} initialB={kinship} onClose={() => setKinship(null)} />}
+      {merge && <MergeDialog initialA={merge} onClose={() => setMerge(null)} />}
+      {branch && <BranchDialog personId={branch} onClose={() => setBranch(null)} />}
     </>
   );
 }

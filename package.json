@@ -1,6 +1,6 @@
 {
   "name": "kinmap",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "РЎРµРјРµР№РЅРѕРµ РґСЂРµРІРѕ РІ РѕРґРЅРѕРј HTML-С„Р°Р№Р»Рµ: СЂР°Р±РѕС‚Р°РµС‚ РІ Р±СЂР°СѓР·РµСЂРµ Р±РµР· СЃРµСЂРІРµСЂР° Рё РёРЅС‚РµСЂРЅРµС‚Р°. Family tree app in a single HTML file.",
   "private": true,
   "license": "MIT",

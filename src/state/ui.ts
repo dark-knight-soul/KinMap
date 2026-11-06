@@ -10,12 +10,19 @@ export interface ContextMenuState {
   y: number;
 }
 
+/** Подсвеченный путь «кем приходится» на схеме */
+export interface HighlightState {
+  ids: string[];
+  label: string;
+}
+
 interface UiState {
   helpOpen: boolean;
   contextMenu: ContextMenuState | null;
+  highlight: HighlightState | null;
 }
 
-let ui: UiState = { helpOpen: false, contextMenu: null };
+let ui: UiState = { helpOpen: false, contextMenu: null, highlight: null };
 const listeners = new Set<() => void>();
 
 function set(patch: Partial<UiState>): void {
@@ -37,3 +44,4 @@ export const openHelp = () => set({ helpOpen: true });
 export const closeHelp = () => set({ helpOpen: false });
 export const openContextMenu = (m: ContextMenuState) => set({ contextMenu: m });
 export const closeContextMenu = () => set({ contextMenu: null });
+export const setHighlight = (h: HighlightState | null) => set({ highlight: h });

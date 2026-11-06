@@ -5,15 +5,18 @@ import { layoutAncestors, layoutDescendants, layoutFamily } from '../../layout/t
 import { CARD_H, CARD_W, type Bounds, type CardBox, type ChartLayout } from '../../layout/types';
 import type { Person, TreeData } from '../../model/types';
 import { select, setFocus, useApp } from '../../state/store';
-import { useView, type ChartKind } from '../../state/view';
+import { useView, type ChartKind, type ColorMode } from '../../state/view';
 import { avatarGeometry } from '../../file/images';
 import { computeIssues } from '../../model/checks';
-import { openContextMenu } from '../../state/ui';
+import { openContextMenu, setHighlight, useUi } from '../../state/ui';
+import { lineKinds, surnameColors, surnameKey, type LineKind } from '../../layout/colors';
 import { lifespan } from '../format';
+import { genderSurname } from '../../model/names';
 import { urlFor } from '../media';
 import { useAddRelative, type RelativeKind } from '../useAddRelative';
 import { CardContextMenu, QuickAdd } from './CardActions';
-import { PanZoom, type Viewport } from './PanZoom';
+import { PanZoom, type MinimapRect, type Viewport } from './PanZoom';
+import { X } from 'lucide-react';
 
 // Схема древа: считает раскладку для выбранного вида и рисует карточки и линии.
 // Клик — выбрать человека (откроется его карточка), двойной клик — сделать центром схемы.
@@ -33,26 +36,54 @@ export function TreeChart() {
   );
 
   const { add, dialog } = useAddRelative();
+  const tints = useTints(tree, focus, view.color);
+  const highlight = useUi((s) => s.highlight);
+
+  // Мини-карта: упрощённые прямоугольники карточек (для веера не нужна — он компактный)
+  const minimap = useMemo<MinimapRect[] | undefined>(
+    () =>
+      layout?.kind === 'cards'
+        ? layout.chart.cards.map((c) => ({ x: c.x, y: c.y, w: CARD_W, h: CARD_H, color: tints?.get(c.personId) }))
+        : undefined,
+    [layout, tints],
+  );
 
   if (!focus || !layout) return null;
 
   // Центрируем на человеке-центре при смене центра или вида (но не при каждой правке)
+  // При подсветке пути — центр на середине пути, иначе на человеке-центре
   const center =
     layout.kind === 'fan'
       ? { x: 0, y: -layout.fan.radius / 2, seq: `${view.chart}:${focus}` }
-      : centerOf(layout.chart, focus, `${view.chart}:${focus}`);
+      : (highlight && centerOfPath(layout.chart, highlight.ids, `${view.chart}:${focus}:${highlight.label}`)) ||
+        centerOf(layout.chart, focus, `${view.chart}:${focus}`);
 
   return (
     <>
-      <PanZoom bounds={layout.bounds} center={center} label={t('tree.canvasLabel')} onBackgroundClick={() => select(undefined)}>
+      <PanZoom
+        bounds={layout.bounds}
+        center={center}
+        label={t('tree.canvasLabel')}
+        onBackgroundClick={() => select(undefined)}
+        minimap={minimap}
+      >
         {(vp) =>
           layout.kind === 'fan' ? (
-            <FanContent tree={tree} fan={layout.fan} selectedId={selectedId} />
+            <FanContent tree={tree} fan={layout.fan} selectedId={selectedId} tints={tints} />
           ) : (
-            <CardsContent tree={tree} chart={layout.chart} vp={vp} selectedId={selectedId} focusId={focus} onQuickAdd={add} />
+            <CardsContent tree={tree} chart={layout.chart} vp={vp} selectedId={selectedId} focusId={focus} onQuickAdd={add} tints={tints} />
           )
         }
       </PanZoom>
+      <ColorLegend tree={tree} mode={view.color} layout={layout} />
+      {highlight && (
+        <div className="path-chip" role="status">
+          <span>{highlight.label}</span>
+          <button type="button" className="icon-btn" onClick={() => setHighlight(null)} title={t('common.close')} aria-label={t('common.close')}>
+            <X size={14} strokeWidth={2} />
+          </button>
+        </div>
+      )}
       {dialog}
       <CardContextMenu onAdd={add} />
     </>
@@ -87,6 +118,75 @@ function contextMenuHandlers(personId: string) {
   };
 }
 
+/** Цвет линии (отцовская, материнская, своя) — переменные темы */
+const LINE_COLOR: Record<LineKind, string> = {
+  paternal: 'var(--line-paternal)',
+  maternal: 'var(--line-maternal)',
+  own: 'var(--line-own)',
+};
+
+/** Цвета карточек для выбранного режима окраски; undefined — по полу (как раньше, через CSS) */
+export function useTints(tree: TreeData, focusId: string | undefined, mode: ColorMode): Map<string, string> | undefined {
+  return useMemo(() => {
+    if (mode === 'sex' || !focusId) return undefined;
+    const out = new Map<string, string>();
+    // Кто не попал ни в одну группу (супруги, люди без фамилии) — нейтральный серый,
+    // чтобы цвет пола не путался с цветами линий
+    for (const id of Object.keys(tree.people)) out.set(id, 'var(--sex-u)');
+    if (mode === 'line') {
+      for (const [id, kind] of lineKinds(tree, focusId)) out.set(id, LINE_COLOR[kind]);
+    } else {
+      const palette = surnameColors(tree);
+      for (const p of Object.values(tree.people)) {
+        const c = palette.get(surnameKey(p.names.surname) ?? '');
+        if (c) out.set(p.id, c);
+      }
+    }
+    return out;
+  }, [tree, focusId, mode]);
+}
+
+/** Легенда цветов в углу схемы */
+function ColorLegend({ tree, mode, layout }: { tree: TreeData; mode: ColorMode; layout: Computed }) {
+  const { t } = useTranslation();
+  const surnames = useMemo(() => {
+    if (mode !== 'surname') return [];
+    // Самые частые фамилии среди тех, кто сейчас на схеме (мужская и женская форма — одна запись)
+    const ids =
+      layout.kind === 'fan'
+        ? [layout.fan.rootId, ...layout.fan.segments.map((s) => s.personId)]
+        : layout.chart.cards.map((c) => c.personId);
+    const palette = surnameColors(tree);
+    const count = new Map<string, { label: string; color: string; n: number }>();
+    for (const id of new Set(ids)) {
+      const sn = tree.people[id]?.names.surname?.trim();
+      const key = surnameKey(sn);
+      const color = key && palette.get(key);
+      if (!sn || !key || !color) continue;
+      const cur = count.get(key);
+      if (cur) cur.n++;
+      else count.set(key, { label: genderSurname(sn, 'M'), color, n: 1 });
+    }
+    return [...count.values()].sort((a, b) => b.n - a.n).slice(0, 6);
+  }, [tree, mode, layout]);
+  if (mode === 'sex') return null;
+  const items =
+    mode === 'line'
+      ? (['paternal', 'maternal', 'own'] as const).map((k) => ({ label: t(`colors.${k}`), color: LINE_COLOR[k] }))
+      : surnames;
+  if (items.length === 0) return null;
+  return (
+    <ul className="color-legend" aria-label={t('colors.legend')}>
+      {items.map((i) => (
+        <li key={i.label}>
+          <span className="legend-dot" style={{ background: i.color }} />
+          {i.label}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export type Computed =
   | { kind: 'cards'; chart: ChartLayout; bounds: Bounds }
   | { kind: 'fan'; fan: ReturnType<typeof layoutFan>; bounds: Bounds };
@@ -106,6 +206,20 @@ export function computeLayout(tree: TreeData, chart: ChartKind, focus: string, u
   return { kind: 'cards', chart: layout, bounds: layout.bounds };
 }
 
+/** Середина прямоугольника, охватывающего всех людей пути */
+function centerOfPath(chart: ChartLayout, ids: string[], seq: string) {
+  const set = new Set(ids);
+  const cards = chart.cards.filter((c) => set.has(c.personId) && !c.duplicate);
+  if (!cards.length) return null;
+  const xs = cards.map((c) => c.x);
+  const ys = cards.map((c) => c.y);
+  return {
+    x: (Math.min(...xs) + Math.max(...xs) + CARD_W) / 2,
+    y: (Math.min(...ys) + Math.max(...ys) + CARD_H) / 2,
+    seq,
+  };
+}
+
 function centerOf(chart: ChartLayout, focus: string, seq: string) {
   const c = chart.cards.find((x) => x.personId === focus && !x.duplicate) ?? chart.cards[0];
   return c ? { x: c.x + CARD_W / 2, y: c.y + CARD_H / 2, seq } : null;
@@ -121,6 +235,7 @@ export function CardsContent({
   focusId,
   print = false,
   onQuickAdd,
+  tints,
 }: {
   tree: TreeData;
   chart: ChartLayout;
@@ -131,7 +246,11 @@ export function CardsContent({
   print?: boolean;
   /** Кнопки «+» вокруг выбранной карточки */
   onQuickAdd?: (personId: string, kind: RelativeKind) => void;
+  /** Цвета карточек (по линиям или фамилиям) */
+  tints?: Map<string, string>;
 }) {
+  const highlight = useUi((s) => s.highlight);
+  const pathIds = useMemo(() => (highlight && !print ? new Set(highlight.ids) : null), [highlight, print]);
   // Рисуем только то, что попадает в видимую область
   const lines = chart.lines.filter((l) => {
     let minX = Infinity;
@@ -164,7 +283,7 @@ export function CardsContent({
           <circle cx={AV / 2} cy={AV / 2} r={AV / 2} />
         </clipPath>
       </defs>
-      <g className="links">
+      <g className={pathIds ? 'links dimmed' : 'links'}>
         {lines.map((l) => (
           <polyline key={l.key} points={l.points.map((p) => p.join(',')).join(' ')} className={l.dashed ? 'link dashed' : 'link'} />
         ))}
@@ -184,6 +303,8 @@ export function CardsContent({
             simple={simple}
             photoUrl={bytes && photo ? urlFor(bytes, photo.mime) : undefined}
             hasIssue={!print && issueIds.has(c.personId)}
+            tint={tints?.get(c.personId)}
+            path={pathIds ? (pathIds.has(c.personId) ? 'in' : 'out') : undefined}
           />
         );
       })}
@@ -206,6 +327,8 @@ const Card = memo(function Card({
   simple,
   photoUrl,
   hasIssue,
+  tint,
+  path,
 }: {
   box: CardBox;
   person: Person;
@@ -214,13 +337,17 @@ const Card = memo(function Card({
   simple: boolean;
   photoUrl?: string;
   hasIssue: boolean;
+  /** Цвет полоски и лёгкая заливка (режимы «по линиям» / «по фамилиям») */
+  tint?: string;
+  /** Подсветка пути: in — на пути, out — приглушить */
+  path?: 'in' | 'out';
 }) {
   const { t } = useTranslation();
   const n = person.names;
   const line1 = [n.given, n.patronymic].filter(Boolean).join(' ') || t('common.unnamed');
   const line2 = n.surname ?? '';
   const years = lifespan(person);
-  const cls = ['card', `card-${person.sex}`, selected && 'selected', focus && 'focus', box.duplicate && 'duplicate']
+  const cls = ['card', `card-${person.sex}`, selected && 'selected', focus && 'focus', box.duplicate && 'duplicate', path === 'in' && 'in-path', path === 'out' && 'dimmed']
     .filter(Boolean)
     .join(' ');
   const title = [n.given, n.patronymic, n.surname].filter(Boolean).join(' ') + (years ? ` (${years})` : '');
@@ -240,8 +367,22 @@ const Card = memo(function Card({
       aria-label={title || t('common.unnamed')}
     >
       <title>{box.duplicate ? `${title}\n${t('tree.duplicateHint')}` : title}</title>
-      <rect className="card-bg" width={CARD_W} height={CARD_H} rx={12} />
-      <rect className="card-stripe" x={0} y={12} width={4} height={CARD_H - 24} rx={2} />
+      <rect
+        className="card-bg"
+        width={CARD_W}
+        height={CARD_H}
+        rx={12}
+        style={tint && !focus ? { fill: `color-mix(in srgb, ${tint} 10%, var(--surface))` } : undefined}
+      />
+      <rect
+        className="card-stripe"
+        x={0}
+        y={12}
+        width={tint ? 6 : 4}
+        height={CARD_H - 24}
+        rx={2}
+        style={tint ? { fill: tint } : undefined}
+      />
       {!simple && (
         <>
           {photo && photoUrl && (
@@ -307,7 +448,21 @@ function arcPath(s: FanSegment): string {
   ].join(' ');
 }
 
-export function FanContent({ tree, fan, selectedId }: { tree: TreeData; fan: ReturnType<typeof layoutFan>; selectedId?: string }) {
+export function FanContent({
+  tree,
+  fan,
+  selectedId,
+  tints,
+}: {
+  tree: TreeData;
+  fan: ReturnType<typeof layoutFan>;
+  selectedId?: string;
+  tints?: Map<string, string>;
+}) {
+  const tintStyle = (id: string) => {
+    const c = tints?.get(id);
+    return c ? { fill: `color-mix(in srgb, ${c} 22%, var(--surface))` } : undefined;
+  };
   const { t } = useTranslation();
   const root = tree.people[fan.rootId];
   return (
@@ -329,7 +484,7 @@ export function FanContent({ tree, fan, selectedId }: { tree: TreeData; fan: Ret
         return (
           <g key={s.key} className={cls} onClick={() => select(person.id)} onDoubleClick={() => setFocus(person.id)} {...contextMenuHandlers(person.id)}>
             <title>{[person.names.given, person.names.patronymic, person.names.surname, lifespan(person)].filter(Boolean).join(' ')}</title>
-            <path d={arcPath(s)} className="fan-bg" />
+            <path d={arcPath(s)} className="fan-bg" style={tintStyle(person.id)} />
             <g transform={`translate(${rMid * Math.cos(mid)} ${rMid * Math.sin(mid)}) rotate(${rotate})`}>
               <text textAnchor="middle" y={radial ? 4 : -4} className="fan-name">
                 {cut(person.names.given ?? t('common.unnamed'), maxChars)}
@@ -345,7 +500,7 @@ export function FanContent({ tree, fan, selectedId }: { tree: TreeData; fan: Ret
       })}
       {root && (
         <g className={['fan-root', `card-${root.sex}`, root.id === selectedId && 'selected'].filter(Boolean).join(' ')} onClick={() => select(root.id)}>
-          <circle r={FAN_CENTER_R} className="fan-bg" />
+          <circle r={FAN_CENTER_R} className="fan-bg" style={tintStyle(root.id)} />
           <text textAnchor="middle" y={-6} className="fan-name">
             {cut(root.names.given ?? t('common.unnamed'), 14)}
           </text>

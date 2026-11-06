@@ -1,10 +1,12 @@
 import { OctagonExclamationPoint, TriangleExclamationPoint } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { computeIssues, issuesOf, type Issue } from '../model/checks';
 import { updatePerson } from '../model/ops';
 import type { TreeData } from '../model/types';
 import { apply, select, setFocus, useApp } from '../state/store';
 import { useNameOf } from './format';
+import { MergeDialog } from './MergeDialog';
 import { Modal } from './Modal';
 
 // Замечания проверки данных: блок в карточке человека и общий список по древу.
@@ -69,6 +71,7 @@ export function IssuesDialog({ onClose }: { onClose: () => void }) {
   const tree = useApp((s) => s.session!.history.present);
   const text = useIssueText();
   const issues = computeIssues(tree);
+  const [merge, setMerge] = useState<[string, string] | null>(null);
   const groups = [
     { title: t('checks.errors'), items: issues.filter((i) => i.severity === 'error') },
     { title: t('checks.warnings'), items: issues.filter((i) => i.severity === 'warning') },
@@ -95,6 +98,11 @@ export function IssuesDialog({ onClose }: { onClose: () => void }) {
                 >
                   {text(tree, iss)}
                 </button>
+                {iss.code === 'possibleDuplicate' && iss.personIds[1] && (
+                  <button type="button" className="btn btn-small" onClick={() => setMerge([iss.personIds[0]!, iss.personIds[1]!])}>
+                    {t('merge.run')}
+                  </button>
+                )}
                 <button type="button" className="btn btn-small btn-ghost" onClick={() => ignore(iss)}>
                   {t('checks.ignore')}
                 </button>
@@ -103,6 +111,7 @@ export function IssuesDialog({ onClose }: { onClose: () => void }) {
           </ul>
         </section>
       ))}
+      {merge && <MergeDialog initialA={merge[0]} initialB={merge[1]} onClose={() => setMerge(null)} />}
     </Modal>
   );
 }

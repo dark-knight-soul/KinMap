@@ -65,7 +65,7 @@ function withFamily(tree: TreeData, family: Family): TreeData {
 }
 
 /** Убирает «пустые» семьи: меньше двух участников (пары без детей и братья без родителей остаются) */
-function cleanupFamilies(tree: TreeData): TreeData {
+export function cleanupFamilies(tree: TreeData): TreeData {
   let families = tree.families;
   for (const f of Object.values(tree.families)) {
     if (f.partners.length + f.children.length < 2) {

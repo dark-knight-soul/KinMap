@@ -22,10 +22,12 @@
 
 | | |
 |---|---|
-| 🌳 **Схема древа** | Виды «Семья» (предки сверху, потомки снизу), «Предки», «Потомки», «Веер». Родных добавляете прямо на схеме: кнопки «+» вокруг карточки и меню правой кнопкой. Масштаб колесом и пальцами, поиск. Повторные браки, разводы, приёмные дети, браки между родственниками |
-| 🔗 **Кем приходится** | Выберите двух людей — KinMap назовёт родство в обе стороны: деверь, золовка, шурин, свояченица, сват, ятровка, двоюродный дедушка, внучатый племянник, троюродная сестра… Если точного слова нет — описание: «жена брата жены» |
+| 🌳 **Схема древа** | Виды «Семья» (предки сверху, потомки снизу), «Предки», «Потомки», «Веер». Родных добавляете прямо на схеме: кнопки «+» вокруг карточки и меню правой кнопкой. Масштаб колесом и пальцами, мини-карта, поиск. Окраска карточек по полу, по линиям (отцовская / материнская) или по фамилиям. Повторные браки, разводы, приёмные дети, браки между родственниками |
+| 🔗 **Кем приходится** | Выберите двух людей — KinMap назовёт родство в обе стороны: деверь, золовка, шурин, свояченица, сват, ятровка, двоюродный дедушка, внучатый племянник, троюродная сестра… Если точного слова нет — описание: «жена брата жены». Путь можно подсветить прямо на схеме |
 | 🖼 **Фото и биография** | Фото сжимаются, данные о месте съёмки (GPS) удаляются. Круглый аватар с выбором области. Профессия, биография, неточные даты: «ок. 1950», «до 1920», «между 1900 и 1905» |
-| ✅ **Проверка ошибок** | «Мать младше ребёнка», «родился после смерти матери», возможные дубликаты — 13 видов замечаний. Неточные даты не дают ложных тревог |
+| ✅ **Проверка ошибок** | «Мать младше ребёнка», «родился после смерти матери», возможные дубликаты — 13 видов замечаний. Неточные даты не дают ложных тревог. Дубликаты объединяются в одну запись |
+| 📊 **Статистика рода** | Сколько людей и поколений, средняя продолжительность жизни по векам, долгожители, частые имена, фамилии и места, насколько заполнено древо |
+| 🌿 **Ветка отдельным файлом** | Потомки или предки одного человека — в отдельный файл KinMap или GEDCOM, чтобы поделиться с роднёй их частью рода |
 | 🖨 **Печать и PDF** | Плакат из склеиваемых листов A4/A3: полосы для клея, метки совмещения, схема сборки, линейка для проверки масштаба. Или один лист до A0 |
 | 🔄 **GEDCOM** | Импорт и экспорт 5.5.1 и 7.0 (MyHeritage, Geni, Ancestry, FamilySearch, Gramps). Кодировки UTF-8, Windows-1251, ANSEL. Незнакомые поля (источники и т.п.) не теряются |
 | 📅 **Календарь** | Дни рождения, памятные даты, годовщины свадеб, круглые даты. Экспорт в календарь телефона (.ics) |
@@ -97,7 +99,7 @@ KinMap is an open-source family tree app that runs entirely in your browser from
 
 **Try it online:** [dark-knight-soul.github.io/KinMap](https://dark-knight-soul.github.io/KinMap/) ([example](https://dark-knight-soul.github.io/KinMap/#demo&lang=en)). **Offline:** download `KinMap.html` from [Releases](../../releases/latest), double-click it, then create a tree, open a `.kinmap` or GEDCOM file, or press “Try an example”.
 
-**Features:** family / ancestors / descendants / fan charts with zoom and search; relationship finder (in Russian it knows the precise in-law terms; English terms include “first cousin once removed”); photos (compressed, GPS removed) with avatar cropping; biographies and approximate dates; data consistency checks; tiled A4/A3 poster printing with glue strips, alignment marks and an assembly map; GEDCOM 5.5.1 / 7.0 import & export (UTF-8, Windows-1251, ANSEL; unknown fields preserved; living people hidden on export); family calendar with .ics export; password-protected files (AES-256); autosave, auto-backups, undo; Russian and English UI; light and dark themes.
+**Features:** family / ancestors / descendants / fan charts with zoom and search; card coloring by sex, paternal/maternal line or surname; minimap; relationship finder with the path highlighted on the chart (in Russian it knows the precise in-law terms; English terms include “first cousin once removed”); merging duplicates; family statistics; saving a branch as a separate file; photos (compressed, GPS removed) with avatar cropping; biographies and approximate dates; data consistency checks; tiled A4/A3 poster printing with glue strips, alignment marks and an assembly map; GEDCOM 5.5.1 / 7.0 import & export (UTF-8, Windows-1251, ANSEL; unknown fields preserved; living people hidden on export); family calendar with .ics export; password-protected files (AES-256); autosave, auto-backups, undo; Russian and English UI; light and dark themes.
 
 **Privacy:** nothing is sent anywhere. Your tree is a `.kinmap` file on your disk; the browser keeps a backup copy. Best experience in Chrome or Edge (saving directly to the file, exact print sizes).
 
