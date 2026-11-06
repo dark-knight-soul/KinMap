@@ -37,6 +37,34 @@ export interface LifeEvent {
   place?: string;
 }
 
+/** Тип события жизни (рождение и смерть — отдельными полями) */
+export type PersonEventType =
+  | 'education'
+  | 'graduation'
+  | 'military'
+  | 'work'
+  | 'residence'
+  | 'award'
+  | 'baptism'
+  | 'burial'
+  | 'emigration'
+  | 'immigration'
+  | 'retirement'
+  | 'other';
+
+/** Событие жизни: учёба, служба, переезд, награда… */
+export interface PersonEvent {
+  id: string;
+  type: PersonEventType;
+  date?: FuzzyDate;
+  place?: string;
+  /** Описание: школа, воинская часть, должность, название награды; у «другого» — что за событие */
+  title?: string;
+  note?: string;
+  /** Незнакомые подполя GEDCOM (источники и т.п.) — возвращаются при экспорте */
+  gedcom?: GedNode[];
+}
+
 export interface PersonNames {
   given?: string;
   patronymic?: string;
@@ -60,6 +88,8 @@ export interface Person {
   notes?: string;
   /** Профессия, занятие */
   occupation?: string;
+  /** События жизни */
+  events?: PersonEvent[];
   /** Фотографии. Первая — главная (на схеме и в списке) */
   photos?: PersonPhoto[];
   /** Замечания проверки, которые человек отметил «это не ошибка» */

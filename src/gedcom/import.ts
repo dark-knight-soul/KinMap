@@ -1,6 +1,7 @@
 import { unzipSync } from 'fflate';
 import { newFamilyId, newPersonId } from '../model/ids';
 import { createTree } from '../model/ops';
+import { eventTypeFromGedcom, KNOWN_EVENT_SUBTAGS, newEventId } from '../model/events';
 import type {
   ChildRelation,
   Family,
@@ -14,6 +15,7 @@ import type {
   PersonNames,
   Sex,
   TreeData,
+  PersonEvent,
 } from '../model/types';
 import { normalizeTree } from '../model/validate';
 import { fromGedcomDate } from './dates';
@@ -120,6 +122,9 @@ function parseName(node: GedNode): PersonNames {
 }
 
 const KNOWN_INDI = new Set(['NAME', 'SEX', 'BIRT', 'DEAT', 'OCCU', 'NOTE', 'SNOTE', 'FAMC', 'FAMS', 'OBJE', 'CHR', 'BAPM', 'BURI', 'CREM']);
+/** Теги событий жизни (кроме OCCU, CHR/BAPM, BURI/CREM — они разбираются отдельно, но тоже могут стать событиями) */
+const EVENT_TAGS = new Set(['EDUC', 'GRAD', 'RESI', 'EMIG', 'IMMI', 'RETI', 'EVEN', '_MILT', '_MILI', '_MILITARY', 'MILI']);
+for (const t of EVENT_TAGS) KNOWN_INDI.add(t);
 const KNOWN_FAM = new Set(['HUSB', 'WIFE', 'CHIL', 'MARR', 'DIV', '_KM_STATUS']);
 const KNOWN_EVENT = new Set(['DATE', 'PLAC']);
 /** Записи верхнего уровня, которые мы разбираем сами (остальные сохраняем) */
@@ -197,14 +202,20 @@ export function importGedcom(bytes: Uint8Array, fileName: string, zipFiles?: Rec
     if (r.xref) ged.xref = r.xref;
     const events: Record<string, GedNode[]> = {};
 
+    // Узлы, которые ушли на замену рождения/смерти (крещение, похороны) — событиями не дублируем
+    const usedAsFallback = new Set<GedNode>();
     // Рождение; если его нет — крещение («родился до …»)
     const birt = event(child(r, 'BIRT'));
     if (birt.ev) person.birth = birt.ev;
     if (birt.extra.length) events.BIRT = birt.extra;
     if (!person.birth) {
-      const chr = event(child(r, 'CHR') ?? child(r, 'BAPM'));
+      const chrNode = child(r, 'CHR') ?? child(r, 'BAPM');
+      const chr = event(chrNode);
       if (chr.ev?.date?.date) chr.ev.date = { q: 'before', date: chr.ev.date.date };
-      if (chr.ev) person.birth = chr.ev;
+      if (chr.ev) {
+        person.birth = chr.ev;
+        usedAsFallback.add(chrNode!);
+      }
     }
     // Смерть; если её нет — похороны («умер до …»). «1 DEAT Y» — умер, даты нет
     const deatNode = child(r, 'DEAT');
@@ -212,14 +223,52 @@ export function importGedcom(bytes: Uint8Array, fileName: string, zipFiles?: Rec
     if (deat.ev) person.death = deat.ev;
     if (deat.extra.length) events.DEAT = deat.extra;
     if (!person.death) {
-      const buri = event(child(r, 'BURI') ?? child(r, 'CREM'));
+      const buriNode = child(r, 'BURI') ?? child(r, 'CREM');
+      const buri = event(buriNode);
       if (buri.ev?.date?.date) buri.ev.date = { q: 'before', date: buri.ev.date.date };
-      if (buri.ev) person.death = buri.ev;
+      if (buri.ev) {
+        person.death = buri.ev;
+        usedAsFallback.add(buriNode!);
+      }
     }
     if (deatNode && !person.death) person.living = false;
 
-    const occu = children(r, 'OCCU').map((o) => o.value?.trim()).filter(Boolean);
+    // Профессия без даты и места — просто «профессия»; с датой или местом — событие «работа»
+    const isDatedOccu = (o: GedNode) => !!(o.children ?? []).length;
+    const occu = children(r, 'OCCU')
+      .filter((o) => !isDatedOccu(o))
+      .map((o) => o.value?.trim())
+      .filter(Boolean);
     if (occu.length) person.occupation = occu.join(', ');
+
+    // События жизни
+    const lifeEvents: PersonEvent[] = [];
+    for (const n of r.children ?? []) {
+      if (usedAsFallback.has(n)) continue;
+      if (n.tag === 'OCCU' && !isDatedOccu(n)) continue;
+      const typeText = child(n, 'TYPE')?.value?.trim();
+      const type = eventTypeFromGedcom(n.tag, typeText);
+      if (!type) continue;
+      const ev: PersonEvent = { id: newEventId(), type };
+      const d = date(child(n, 'DATE'));
+      if (d) ev.date = d;
+      const place = child(n, 'PLAC')?.value?.trim();
+      if (place) ev.place = place;
+      const value = n.value?.trim() && n.value.trim() !== 'Y' ? n.value.trim() : undefined;
+      // У «другого» описанием служит TYPE, значение (если есть) — в заметку
+      const title = type === 'other' ? (typeText ?? value) : value;
+      if (title) ev.title = title;
+      const noteParts = [type === 'other' && typeText && value ? value : undefined];
+      for (const nn of [...children(n, 'NOTE'), ...children(n, 'SNOTE')]) {
+        noteParts.push(notes.get(pointer(nn.value) ?? '') ?? (pointer(nn.value) ? undefined : nn.value));
+      }
+      const note = noteParts.map((x) => x?.trim()).filter(Boolean).join('\n\n');
+      if (note) ev.note = note;
+      const rest = preserve((n.children ?? []).filter((c) => !KNOWN_EVENT_SUBTAGS.has(c.tag) && c.tag !== 'SNOTE'));
+      if (rest.length) ev.gedcom = rest;
+      lifeEvents.push(ev);
+    }
+    if (lifeEvents.length) person.events = lifeEvents;
 
     const noteTexts = [...children(r, 'NOTE'), ...children(r, 'SNOTE')]
       .map((n) => notes.get(pointer(n.value) ?? '') ?? (pointer(n.value) ? '' : (n.value ?? '')))

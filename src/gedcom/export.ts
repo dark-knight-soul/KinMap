@@ -2,6 +2,7 @@ import { strToU8, zipSync, type Zippable } from 'fflate';
 import type { MediaStore } from '../file/format';
 import { parentFamiliesOf, isLiving } from '../model/queries';
 import type { Family, GedNode, LifeEvent, Person, TreeData } from '../model/types';
+import { eventToGedcom, sortEvents } from '../model/events';
 import { toGedcomDate } from './dates';
 import { writeNodes } from './lines';
 
@@ -72,6 +73,7 @@ export function exportGedcom(tree: TreeData, media: MediaStore, opts: ExportOpti
       if (p.death || p.gedcom?.events?.DEAT) pushEvent(c, 'DEAT', p.death, p.gedcom?.events?.DEAT, v7);
       else if (p.living === false) c.push({ tag: 'DEAT', value: 'Y' });
       if (p.occupation) c.push({ tag: 'OCCU', value: p.occupation });
+      for (const e of sortEvents(p.events ?? [])) c.push(eventToGedcom(e, dateNode(e.date, v7)));
       if (p.notes) c.push({ tag: 'NOTE', value: p.notes });
       if (opts.includePhotos) {
         for (const ph of p.photos ?? []) {
@@ -174,6 +176,14 @@ function nameNode(p: Person, priv: boolean, v7: boolean): GedNode {
   if (priv && v7) node.children!.push({ tag: 'TYPE', value: 'OTHER', children: [{ tag: 'PHRASE', value: 'Living person — hidden' }] });
   if (!node.children!.length) delete node.children;
   return node;
+}
+
+/** Узел DATE: точная дата или фраза (в 7.0 — DATE.PHRASE, в 5.5.1 — текст в скобках) */
+function dateNode(date: LifeEvent['date'], v7: boolean): GedNode | undefined {
+  const d = toGedcomDate(date);
+  if (d.value) return { tag: 'DATE', value: d.value };
+  if (d.phrase) return v7 ? { tag: 'DATE', children: [{ tag: 'PHRASE', value: d.phrase }] } : { tag: 'DATE', value: `(${d.phrase})` };
+  return undefined;
 }
 
 function pushEvent(out: GedNode[], tag: string, ev: LifeEvent | undefined, extra: GedNode[] | undefined, v7: boolean): void {

@@ -1541,3 +1541,105 @@ kbd {
 .tl-label { font-size: 12px; fill: var(--text); pointer-events: none; }
 .tl-label.inside { fill: #fff; font-weight: 600; }
 .tl-row.tl-unknown .tl-label.inside { fill: var(--text); }
+
+/* ─── 1.4: события жизни, «Книга семьи» ─── */
+
+/* События в карточке человека */
+.life-events { display: flex; flex-direction: column; gap: 8px; }
+.life-events-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.life-events-head .form-subtitle { margin: 0; }
+.events-menu { right: 0; left: auto; max-height: 340px; overflow-y: auto; }
+.event-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.event-item { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.event-item.open { border-color: var(--accent); }
+.event-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 10px;
+}
+.event-row:hover { background: var(--hover); }
+.event-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.event-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.event-text strong { overflow-wrap: anywhere; }
+.event-chevron { color: var(--muted); transition: transform 0.15s; flex-shrink: 0; }
+.event-item.open .event-chevron { transform: rotate(180deg); }
+.event-form { padding: 4px 12px 12px; }
+.event-actions { display: flex; justify-content: space-between; gap: 8px; }
+.danger-text { color: var(--danger); }
+.inline-select { width: auto; padding: 1px 4px; font-size: 0.9em; margin-left: 4px; }
+
+/* Лента: события жизни — ромбики на полосах */
+.tl-life-event { fill: var(--surface); stroke: var(--text); stroke-width: 1.2; }
+
+/* Окно книги */
+.book-pickers { margin-bottom: 8px; }
+
+/* Сама книга — только при печати */
+.book {
+  font-family: Georgia, 'Times New Roman', 'PT Serif', serif;
+  font-size: 10.5pt;
+  line-height: 1.45;
+  color: #222;
+  background: #fff;
+}
+.book h1, .book h2, .book h3 { font-family: inherit; color: #1f2a24; }
+.book-cover {
+  min-height: 262mm;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6mm;
+  break-after: page;
+  page-break-after: always;
+}
+.book-kicker { letter-spacing: 0.3em; text-transform: uppercase; font-size: 10pt; color: #6b5a3a; margin: 0; }
+.book-cover h1 { font-size: 30pt; margin: 0; line-height: 1.15; }
+.book-cover-photo { width: 45mm; height: 55mm; object-fit: cover; border-radius: 3mm; border: 1px solid #ccc; }
+.book-cover-sub { font-size: 13pt; margin: 0; }
+.book-cover-meta, .book-cover-date { margin: 0; color: #555; }
+.book-toc { break-after: page; page-break-after: always; }
+.book-toc ol { font-size: 12pt; line-height: 1.9; }
+.book-note { color: #555; font-size: 9.5pt; }
+.book-section { break-before: page; page-break-before: always; }
+.book-section h2 { font-size: 17pt; border-bottom: 1.5pt solid #2f6b4f; padding-bottom: 2mm; margin: 0 0 5mm; }
+.book-gen h3 { font-size: 11pt; text-transform: uppercase; letter-spacing: 0.08em; color: #2f6b4f; margin: 6mm 0 3mm; break-after: avoid; }
+.book-rec { margin: 0 0 3mm; break-inside: avoid; }
+.book-rec p { margin: 0; }
+.book-union { margin: 0 0 0 7mm !important; }
+.book-num { color: #2f6b4f; margin-right: 1mm; }
+.book-muted { color: #666; }
+.book-label { font-weight: 600; }
+.book-bio { break-inside: avoid; overflow: hidden; padding: 0 0 4mm; margin-bottom: 4mm; border-bottom: 0.5pt solid #ccc; }
+.book-bio h3 { font-size: 13pt; margin: 0 0 1mm; }
+.book-bio p { margin: 0 0 1.5mm; }
+.book-life { font-style: italic; color: #333; }
+.book-photo { float: right; width: 30mm; height: 38mm; object-fit: cover; border-radius: 2mm; margin: 0 0 2mm 4mm; border: 0.5pt solid #bbb; }
+.book-events { list-style: none; margin: 0 0 2mm; padding: 0; }
+.book-events li { display: grid; grid-template-columns: 30mm 1fr; gap: 3mm; }
+.book-ev-date { color: #555; }
+.book-notes p { text-align: justify; }
+.book-refs { color: #6b5a3a; font-size: 9pt; font-weight: normal; }
+.book-index ul { list-style: none; padding: 0; margin: 0; columns: 2; column-gap: 8mm; }
+.book-index li { break-inside: avoid; display: flex; gap: 2mm; align-items: baseline; }
+.book-index li .book-refs { margin-left: auto; text-align: right; }
+.book-footer { margin-top: 10mm; font-size: 8.5pt; color: #777; text-align: center; }

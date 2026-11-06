@@ -5,6 +5,7 @@ import { buildTimeline, directLine, HISTORY_EVENTS } from '../../model/timeline'
 import { select, setFocus, useApp } from '../../state/store';
 import { setView, useView } from '../../state/view';
 import { lifespan, useNameOf } from '../format';
+import { useEventSummary } from '../LifeEvents';
 import { useTints } from '../tree/TreeChart';
 
 // Лента времени: полоса жизни каждого человека по годам, отметки браков,
@@ -28,6 +29,7 @@ export function TimelineView() {
   const selectedId = useApp((s) => s.session!.selectedId);
   const view = useView();
   const nameOf = useNameOf();
+  const eventSummary = useEventSummary();
   const focus = focusId && tree.people[focusId] ? focusId : tree.rootPersonId;
   const [filter, setFilter] = useState<Filter>('all');
   const year = new Date().getFullYear();
@@ -161,6 +163,20 @@ export function TimelineView() {
                     <title>{label}</title>
                     <rect x={0} y={i * ROW_H} width={width} height={ROW_H} className="tl-hit" />
                     <rect x={x0} y={top} width={w} height={BAR_H} rx={BAR_H / 2} className="tl-bar" style={tint ? { fill: tint } : undefined} />
+                    {r.events.map(({ year: ey, event }) => (
+                      // Событие жизни — ромбик у верхнего края полосы
+                      <rect
+                        key={event.id}
+                        x={x(ey) - 3.5}
+                        y={top - 3.5}
+                        width={7}
+                        height={7}
+                        transform={`rotate(45 ${x(ey)} ${top})`}
+                        className="tl-life-event"
+                      >
+                        <title>{[event.title, eventSummary(event)].filter(Boolean).join(' — ')}</title>
+                      </rect>
+                    ))}
                     <text x={inside ? x0 + 8 : x0 + w + 6} y={top + BAR_H / 2 + 4} className={inside ? 'tl-label inside' : 'tl-label'}>
                       {label}
                     </text>

@@ -1,6 +1,6 @@
 import { approxYear } from './dates';
 import { isLiving, parentFamiliesOf, unionsOf } from './queries';
-import type { PersonId, TreeData } from './types';
+import type { PersonEvent, PersonId, TreeData } from './types';
 
 // Лента времени: у каждого человека полоса от рождения до смерти (или до сегодня),
 // на полосах — годы браков. Плюс исторические события для фона.
@@ -17,6 +17,8 @@ export interface TimelineRow {
   end: RowEnd;
   /** Годы браков (для отметок на полосе) */
   marriages: number[];
+  /** События жизни с известным годом (для отметок на полосе) */
+  events: { year: number; event: PersonEvent }[];
 }
 
 export interface Timeline {
@@ -77,7 +79,10 @@ export function buildTimeline(tree: TreeData, currentYear: number, only?: Set<Pe
     const marriages = unionsOf(tree, p.id)
       .map((f) => approxYear(f.marriage?.date))
       .filter((y): y is number => y !== undefined && y >= from && y <= to);
-    rows.push({ id: p.id, from, to, end, marriages });
+    const events = (p.events ?? [])
+      .map((event) => ({ year: approxYear(event.date), event }))
+      .filter((x): x is { year: number; event: PersonEvent } => x.year !== undefined);
+    rows.push({ id: p.id, from, to, end, marriages, events });
   }
   rows.sort((a, b) => a.from - b.from || a.to - b.to);
   const minYear = rows.length ? Math.floor(rows[0]!.from / 10) * 10 - 5 : currentYear - 100;

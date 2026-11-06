@@ -10,6 +10,7 @@ import { apply, select, setFocus, useApp } from '../state/store';
 import { setView, useView } from '../state/view';
 import { Segmented, SexToggle } from './controls';
 import { DateField } from './DateField';
+import { LifeEventsSection } from './LifeEvents';
 import { lifespan, useDateLocale, useNameOf } from './format';
 import { PersonIssues } from './IssuesView';
 import { KinshipDialog } from './KinshipDialog';
@@ -78,7 +79,7 @@ export function PersonEditor() {
     { value: 'main', label: t('person.tabs.main') },
     { value: 'relatives', label: `${t('person.tabs.relatives')}${relativesCount ? ` ${relativesCount}` : ''}` },
     { value: 'photos', label: `${t('person.tabs.photos')}${photosCount ? ` ${photosCount}` : ''}` },
-    { value: 'life', label: t('person.tabs.life') },
+    { value: 'life', label: `${t('person.tabs.life')}${person.events?.length ? ` ${person.events.length}` : ''}` },
   ];
 
   return (
@@ -253,6 +254,7 @@ export function PersonEditor() {
             value={person.occupation}
             onChange={(v) => update((p) => ({ ...p, occupation: v || undefined }), 'occupation')}
           />
+          <LifeEventsSection person={person} />
           <label className="field">
             <span>{t('person.notes')}</span>
             <textarea

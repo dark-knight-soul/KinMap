@@ -1,6 +1,6 @@
 import { parseFuzzyDate } from './dates';
 import { addPerson, createTree, linkChild, linkPartners } from './ops';
-import type { ChildRelation, FamilyId, PersonId, Sex, TreeData, UnionStatus } from './types';
+import type { ChildRelation, FamilyId, PersonEvent, PersonEventType, PersonId, Sex, TreeData, UnionStatus } from './types';
 
 // Демонстрационная семья — ВЫДУМАННАЯ (совпадения с реальными людьми случайны).
 // Нужна для кнопки «Посмотреть пример» и для тестов схемы.
@@ -103,6 +103,45 @@ export function createDemoTree(name: string): TreeData {
   couple(alexey, kira, 'divorced', '2007');
   kids(couple(alexey, marina, 'married', '2011'), alexey, [artem, sofia]);
   kids(couple(olga, pavel, 'married', '2012'), olga, [dasha]);
+
+  // События жизни (тоже выдуманные)
+  const events = (id: PersonId, list: [PersonEventType, string | undefined, string | undefined, string?][]) => {
+    const p = tree.people[id]!;
+    const evs: PersonEvent[] = list.map(([type, date, place, title], i) => ({
+      id: `demo-${id}-${i}`,
+      type,
+      ...(date && { date: parseFuzzyDate(date) }),
+      ...(place && { place }),
+      ...(title && { title }),
+    }));
+    tree = { ...tree, people: { ...tree.people, [id]: { ...p, events: evs } } };
+  };
+  events(petr, [
+    ['work', '1920', 'Тула', 'Кузнец'],
+    ['military', 'между 1941 и 1945', undefined, 'Рядовой, связист'],
+    ['burial', '1968', 'Тула', 'Городское кладбище'],
+  ]);
+  events(ivan, [
+    ['education', '1942', 'Тула', 'Механический техникум'],
+    ['work', '1946', 'Тула', 'Инженер на заводе'],
+    ['residence', '1951', 'Ташкент'],
+    ['award', '1975', undefined, 'Медаль «Ветеран труда»'],
+    ['retirement', '1985', 'Ташкент'],
+  ]);
+  events(sergey, [
+    ['military', 'между 1970 и 1972', undefined, 'Срочная служба'],
+    ['graduation', '1977', 'Ташкент', 'Политехнический институт'],
+    ['work', '1977', 'Ташкент', 'Инженер-строитель'],
+    ['residence', '1984', 'Самарканд'],
+  ]);
+  events(gulnara, [
+    ['work', '1980', 'Самарканд', 'Учитель музыки'],
+    ['award', '2005', undefined, 'Почётная грамота'],
+  ]);
+  events(alexey, [
+    ['graduation', '2007', 'Ташкент', 'Университет, факультет информатики'],
+    ['work', '2008', 'Ташкент', 'Программист'],
+  ]);
 
   return { ...tree, rootPersonId: alexey };
 }

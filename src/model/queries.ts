@@ -159,7 +159,9 @@ export function fullName(person: Person): string {
 /** Ключ сортировки списка: Фамилия Имя Отчество */
 export function sortKey(person: Person): string {
   const n = person.names;
-  return [n.surname, n.given, n.patronymic].map((s) => s ?? '').join('\u0000').toLocaleLowerCase();
+  // Разделитель — пробел: при сравнении строк он учитывается и идёт раньше букв
+  // (невидимый символ U+0000 сравнение пропускает, и «Демидова Анна» оказывалась раньше «Демидов Алексей»)
+  return [n.surname, n.given, n.patronymic].map((s) => s ?? '').join(' ').toLocaleLowerCase();
 }
 
 /** Поиск по всем частям имени, без учёта регистра и «ё/е» */

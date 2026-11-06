@@ -217,7 +217,23 @@ function PosterPreview({ computed, mode, tilesPlan }: { computed: Computed; mode
  * Страницы для печати выводятся вне приложения (в конце body) и видны только при печати.
  * Размер листа задаётся правилом @page; после печати всё убирается.
  */
-function PrintRoot({ pageW, pageH, onDone, children }: { pageW: number; pageH: number; onDone: () => void; children: React.ReactNode }) {
+export function PrintRoot({
+  pageW,
+  pageH,
+  margin = 0,
+  pageCss = '',
+  onDone,
+  children,
+}: {
+  pageW: number;
+  pageH: number;
+  /** Поля страницы, мм (для схемы — 0: поля нарисованы внутри листа) */
+  margin?: number;
+  /** Дополнительные правила для печати (например, номера страниц) */
+  pageCss?: string;
+  onDone: () => void;
+  children: React.ReactNode;
+}) {
   const [host] = useState(() => {
     const el = document.createElement('div');
     el.id = 'km-print';
@@ -231,7 +247,7 @@ function PrintRoot({ pageW, pageH, onDone, children }: { pageW: number; pageH: n
     document.body.append(host);
     const style = document.createElement('style');
     style.id = 'km-print-page';
-    style.textContent = `@page { size: ${pageW.toFixed(1)}mm ${pageH.toFixed(1)}mm; margin: 0; }`;
+    style.textContent = `@page { size: ${pageW.toFixed(1)}mm ${pageH.toFixed(1)}mm; margin: ${margin}mm; } ${pageCss}`;
     document.head.append(style);
     let done = false;
     const finish = () => {
@@ -252,7 +268,7 @@ function PrintRoot({ pageW, pageH, onDone, children }: { pageW: number; pageH: n
       style.remove();
       host.remove();
     };
-  }, [host, pageW, pageH]);
+  }, [host, pageW, pageH, margin, pageCss]);
 
   return createPortal(children, host);
 }

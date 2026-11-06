@@ -8,11 +8,13 @@ import {
   type GedNode,
   type LifeEvent,
   type Person,
+  type PersonEvent,
   type PersonPhoto,
   type Sex,
   type TreeData,
   type UnionStatus,
 } from './types';
+import { EVENT_TYPES, newEventId } from './events';
 
 // Проверка и «починка» данных при открытии файла. Файл мог быть повреждён,
 // отредактирован руками или создан другой версией программы — приложение не должно
@@ -71,6 +73,33 @@ function cleanEvent(v: unknown): LifeEvent | undefined {
   const place = str(v.place);
   if (place) out.place = place;
   return out.date || out.place ? out : undefined;
+}
+
+const EVENT_TYPE_SET = new Set<string>(EVENT_TYPES);
+
+function cleanPersonEvents(v: unknown): PersonEvent[] {
+  if (!Array.isArray(v)) return [];
+  const out: PersonEvent[] = [];
+  const ids = new Set<string>();
+  for (const e of v.slice(0, 1000)) {
+    if (!isObj(e) || typeof e.type !== 'string' || !EVENT_TYPE_SET.has(e.type)) continue;
+    let id = typeof e.id === 'string' && /^[A-Za-z0-9_-]{1,60}$/.test(e.id) ? e.id : newEventId();
+    if (ids.has(id)) id = newEventId();
+    ids.add(id);
+    const ev: PersonEvent = { id, type: e.type as PersonEvent['type'] };
+    const date = cleanDate(e.date);
+    if (date) ev.date = date;
+    const place = str(e.place);
+    if (place) ev.place = place;
+    const title = str(e.title);
+    if (title) ev.title = title;
+    const note = str(e.note);
+    if (note) ev.note = note;
+    const ged = cleanGedNodes(e.gedcom);
+    if (ged.length) ev.gedcom = ged;
+    out.push(ev);
+  }
+  return out;
 }
 
 // ─── Сохранённые поля GEDCOM ───
@@ -174,6 +203,8 @@ export function normalizeTree(raw: unknown): { tree: TreeData; warnings: LoadWar
       if (occupation) person.occupation = occupation;
       const photos = cleanPhotos(value.photos);
       if (photos.length) person.photos = photos;
+      const events = cleanPersonEvents(value.events);
+      if (events.length) person.events = events;
       if (Array.isArray(value.ignoredChecks)) {
         const ignored = value.ignoredChecks.filter((x): x is string => typeof x === 'string');
         if (ignored.length) person.ignoredChecks = ignored;

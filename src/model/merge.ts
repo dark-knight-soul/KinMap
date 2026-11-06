@@ -1,7 +1,7 @@
 import { newTreeId } from './ids';
 import { OpError, cleanupFamilies } from './ops';
 import { isAncestor, parentFamiliesOf, unionsOf } from './queries';
-import type { Family, FamilyChild, LifeEvent, Person, PersonId, TreeData } from './types';
+import type { Family, FamilyChild, LifeEvent, Person, PersonId, TreeData, PersonEvent } from './types';
 
 // Объединение двух записей об одном человеке и вырезание ветки древа.
 
@@ -41,6 +41,10 @@ export function mergePersonData(keep: Person, drop: Person): Person {
   if (drop.notes && drop.notes !== keep.notes) merged.notes = keep.notes ? `${keep.notes}\n\n${drop.notes}` : drop.notes;
   const photos = [...(keep.photos ?? []), ...(drop.photos ?? []).filter((p) => !keep.photos?.some((k) => k.id === p.id))];
   if (photos.length) merged.photos = photos;
+  const sameEvent = (a: PersonEvent, b: PersonEvent) =>
+    a.type === b.type && JSON.stringify(a.date ?? null) === JSON.stringify(b.date ?? null) && (a.place ?? '') === (b.place ?? '') && (a.title ?? '') === (b.title ?? '');
+  const events = [...(keep.events ?? []), ...(drop.events ?? []).filter((e) => !keep.events?.some((k) => sameEvent(k, e)))];
+  if (events.length) merged.events = events;
   const ignored = [...new Set([...(keep.ignoredChecks ?? []), ...(drop.ignoredChecks ?? [])])];
   if (ignored.length) merged.ignoredChecks = ignored;
   if (drop.gedcom?.extra?.length) {
