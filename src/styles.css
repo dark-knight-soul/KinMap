@@ -1474,9 +1474,11 @@ kbd {
 .art-ground-in { stop-color: var(--tree-ground); stop-opacity: 1; }
 .art-ground-out { stop-color: var(--tree-ground); stop-opacity: 0; }
 /* Крона: заливка у кружков сплошная, прозрачность — у группы (без потемнения на пересечениях) */
-.art-crown { fill: var(--tree-leaf); opacity: 0.16; }
-.art-crown.back { fill: var(--tree-leaf-2); opacity: 0.1; }
-.art-label-bg { fill: color-mix(in srgb, var(--canvas-bg) 82%, transparent); }
+.art-crown { fill: var(--tree-leaf); opacity: 0.2; }
+/* Подложка подписи почти непрозрачная — иначе сквозь неё просвечивает ствол */
+.art-label-bg { fill: color-mix(in srgb, var(--canvas-bg) 94%, transparent); stroke: color-mix(in srgb, var(--tree-bark) 25%, transparent); stroke-width: 1; }
+/* Человек в центре схемы на ветке своего рода */
+.art-person.focus > .art-main .art-halo { fill: color-mix(in srgb, var(--accent) 35%, transparent); }
 .art-trunk { fill: var(--tree-bark); }
 .art-branch { fill: none; stroke: var(--tree-bark); stroke-linecap: round; }
 .art-spouse { cursor: pointer; }

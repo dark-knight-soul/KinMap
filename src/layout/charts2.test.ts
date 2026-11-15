@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createBigTree, createDemoTree } from '../model/demo';
 import type { TreeData } from '../model/types';
-import { layoutArtTree } from './artTreeLayout';
+import { artTreeRoot, layoutArtTree } from './artTreeLayout';
 import { layoutButterfly } from './butterflyLayout';
 import { layoutCircle } from './fanLayout';
 import { layoutAncestors, layoutDescendants, layoutFamily } from './treeLayout';
@@ -120,5 +120,21 @@ describe('«Дерево»', () => {
     const t = layoutArtTree(big, big.rootPersonId!, 12);
     expect(t.nodes.length).toBeGreaterThan(100);
     expect(performance.now() - t0).toBeLessThan(1000);
+  });
+});
+
+describe('«Дерево» от родоначальника', () => {
+  it('у человека без детей дерево растёт от старшего предка по отцу, и он сам на ветке', () => {
+    const sofia = idOf(demo, 'София');
+    const { root, depth } = artTreeRoot(demo, sofia);
+    expect(demo.people[root]!.names.given).toBe('Пётр');
+    expect(depth).toBe(4);
+    const t = layoutArtTree(demo, root, depth);
+    expect(t.nodes.some((n) => n.personId === sofia)).toBe(true);
+  });
+
+  it('у человека с детьми — от него самого', () => {
+    const sergey = idOf(demo, 'Сергей');
+    expect(artTreeRoot(demo, sergey)).toEqual({ root: sergey, depth: 0 });
   });
 });

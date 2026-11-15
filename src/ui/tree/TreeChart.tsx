@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { layoutArtTree, type ArtTreeLayout } from '../../layout/artTreeLayout';
+import { artTreeRoot, layoutArtTree, type ArtTreeLayout } from '../../layout/artTreeLayout';
 import { layoutButterfly } from '../../layout/butterflyLayout';
 import { FAN_CENTER_R, layoutCircle, layoutFan, type FanSegment } from '../../layout/fanLayout';
 import { layoutAll, layoutAncestors, layoutDescendants, layoutFamily } from '../../layout/treeLayout';
@@ -65,7 +65,7 @@ export function TreeChart() {
     layout.kind === 'fan'
       ? { x: 0, y: layout.fan.full ? 0 : -layout.fan.radius / 2, seq }
       : layout.kind === 'art'
-        ? { x: 0, y: (layout.bounds.minY + layout.bounds.maxY) / 2, seq }
+        ? artCenter(layout.art, focus, seq) ?? { x: 0, y: (layout.bounds.minY + layout.bounds.maxY) / 2, seq }
         : (highlight && centerOfPath(layout.chart, highlight.ids, `${seq}:${highlight.label}`)) || centerOf(layout.chart, focus, seq);
 
   return (
@@ -81,7 +81,7 @@ export function TreeChart() {
           layout.kind === 'fan' ? (
             <FanContent tree={tree} fan={layout.fan} selectedId={selectedId} tints={tints} />
           ) : layout.kind === 'art' ? (
-            <ArtTreeContent tree={tree} layout={layout.art} vp={vp} selectedId={selectedId} tints={tints} />
+            <ArtTreeContent tree={tree} layout={layout.art} vp={vp} selectedId={selectedId} focusId={focus} tints={tints} />
           ) : (
             <CardsContent tree={tree} chart={layout.chart} vp={vp} selectedId={selectedId} focusId={focus} onQuickAdd={add} tints={tints} />
           )
@@ -185,7 +185,9 @@ export function computeLayout(tree: TreeData, chart: ChartKind, focus: string, u
     return { kind: 'fan', fan, bounds: { minX: -r, minY: -r, maxX: r, maxY: fan.full ? r : FAN_CENTER_R } };
   }
   if (chart === 'tree') {
-    const art = layoutArtTree(tree, focus, down);
+    // Нет детей — растим дерево от родоначальника, но так, чтобы сам человек был виден
+    const { root, depth } = artTreeRoot(tree, focus);
+    const art = layoutArtTree(tree, root, Math.max(down, depth));
     return { kind: 'art', art, bounds: art.bounds };
   }
   const layout =
@@ -199,6 +201,13 @@ export function computeLayout(tree: TreeData, chart: ChartKind, focus: string, u
           ? layoutDescendants(tree, focus, down, horizontal)
           : layoutFamily(tree, focus, up, down, horizontal);
   return { kind: 'cards', chart: layout, bounds: layout.bounds };
+}
+
+/** «Дерево» выросло от предка — центрируем на самом человеке, чтобы он не потерялся в кроне */
+function artCenter(art: ArtTreeLayout, focus: string, seq: string) {
+  if (art.rootId === focus) return null;
+  const n = art.nodes.find((x) => x.personId === focus && !x.duplicate);
+  return n ? { x: n.x, y: n.y, seq } : null;
 }
 
 /** Середина прямоугольника, охватывающего всех людей пути */

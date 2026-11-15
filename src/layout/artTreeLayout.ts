@@ -1,5 +1,5 @@
 import { approxYear } from '../model/dates';
-import { unionsOf } from '../model/queries';
+import { childrenOf, parentsOf, unionsOf } from '../model/queries';
 import type { PersonId, TreeData } from '../model/types';
 import type { Bounds } from './types';
 
@@ -58,6 +58,30 @@ interface TNode {
   weight: number;
   duplicate: boolean;
   more: boolean;
+}
+
+/**
+ * От кого растить «Дерево». Если у выбранного человека есть дети — от него самого.
+ * Если детей нет (дерево вышло бы «пеньком» из одного кружка) — от самого старшего
+ * предка по отцовской линии, чтобы человек оказался на ветке своего рода.
+ * depth — на каком поколении от корня стоит выбранный человек.
+ */
+export function artTreeRoot(tree: TreeData, focus: PersonId): { root: PersonId; depth: number } {
+  if (!tree.people[focus] || childrenOf(tree, focus).length) return { root: focus, depth: 0 };
+  const seen = new Set<PersonId>([focus]);
+  let cur = focus;
+  let depth = 0;
+  for (;;) {
+    // Родной отец, потом родная мать, потом приёмные
+    const parents = parentsOf(tree, cur)
+      .filter((p) => !seen.has(p.person.id))
+      .sort((a, b) => Number(a.relation !== 'birth') - Number(b.relation !== 'birth') || Number(a.person.sex !== 'M') - Number(b.person.sex !== 'M'));
+    const next = parents[0]?.person.id;
+    if (!next) return { root: cur, depth };
+    seen.add(next);
+    cur = next;
+    depth++;
+  }
 }
 
 export function layoutArtTree(tree: TreeData, rootId: PersonId, maxGen: number): ArtTreeLayout {
@@ -126,17 +150,17 @@ export function layoutArtTree(tree: TreeData, rootId: PersonId, maxGen: number):
   place(root, 0, -Math.PI + PAD, -PAD);
 
   // Крона — мягкое «облако» вокруг людей: радиус от шага между ярусами
-  const crownR = Math.min(130, Math.max(80, step * 0.62));
+  const crownR = Math.min(130, Math.max(90, step * 0.62));
 
   // Рамка: «листья» с подписями, крона, ствол и земля
   let minX = -260;
   let maxX = 260;
   let minY = 0;
   for (const nd of nodes) {
-    const pad = Math.max(nd.r + 75, nd.gen ? crownR : 0);
+    const pad = Math.max(nd.r + 75, crownR);
     minX = Math.min(minX, nd.x - pad);
     maxX = Math.max(maxX, nd.x + pad);
-    minY = Math.min(minY, nd.y - Math.max(nd.r + 40, nd.gen ? crownR : 0));
+    minY = Math.min(minY, nd.y - Math.max(nd.r + 40, crownR));
   }
   return { rootId, nodes, bounds: { minX, minY, maxX, maxY: TRUNK_H + 50 }, crownR };
 }

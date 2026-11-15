@@ -81,6 +81,7 @@ export function ArtTreeContent({
   layout,
   vp,
   selectedId,
+  focusId,
   tints,
   print = false,
 }: {
@@ -88,6 +89,8 @@ export function ArtTreeContent({
   layout: ArtTreeLayout;
   vp: Viewport;
   selectedId?: string;
+  /** Человек в центре схемы — если дерево растёт от его предка, он подсвечен */
+  focusId?: string;
   tints?: Map<string, string>;
   print?: boolean;
 }) {
@@ -102,7 +105,7 @@ export function ArtTreeContent({
   const root = layout.nodes[0];
   const trunk = trunkHalf(root?.weight ?? 1);
   // Облака кроны — только у видимых и когда людей не слишком много
-  const crown = layout.nodes.length <= LEAVES_LIMIT ? layout.nodes.filter((n) => n.gen > 0 && visible(n, layout.crownR + 40)) : [];
+  const crown = layout.nodes.length <= LEAVES_LIMIT ? layout.nodes.filter((n) => visible(n, layout.crownR + 40)) : [];
   const photoUrl = (p: Person | undefined) => {
     const ph = p?.photos?.[0];
     const bytes = ph ? media[ph.id] : undefined;
@@ -126,11 +129,6 @@ export function ArtTreeContent({
           поэтому там, где облака перекрываются, цвет не темнеет */}
       {crown.length > 0 && (
         <g aria-hidden="true">
-          <g className="art-crown back">
-            {crown.map((n) => (
-              <circle key={n.key} cx={n.x} cy={n.y} r={layout.crownR * 1.14} />
-            ))}
-          </g>
           <g className="art-crown">
             {crown.map((n) => (
               <circle key={n.key} cx={n.x} cy={n.y} r={layout.crownR} />
@@ -168,6 +166,7 @@ export function ArtTreeContent({
             photo={photoUrl(p)}
             tint={tints?.get(p.id)}
             selected={p.id === selectedId}
+            focus={!print && p.id === focusId && p.id !== layout.rootId}
             simple={simple}
             path={pathIds ? (pathIds.has(p.id) ? 'in' : 'out') : undefined}
             spouses={simple ? [] : n.spouses.map((id) => ({ person: tree.people[id]!, photo: photoUrl(tree.people[id]) }))}
@@ -223,6 +222,7 @@ const ArtPerson = memo(function ArtPerson({
   photo,
   tint,
   selected,
+  focus,
   simple,
   path,
   spouses,
@@ -232,6 +232,7 @@ const ArtPerson = memo(function ArtPerson({
   photo?: string;
   tint?: string;
   selected: boolean;
+  focus: boolean;
   simple: boolean;
   path?: 'in' | 'out';
   spouses: { person: Person; photo?: string }[];
@@ -246,6 +247,7 @@ const ArtPerson = memo(function ArtPerson({
     'art-person',
     `card-${person.sex}`,
     selected && 'selected',
+    focus && 'focus',
     n.gen === 0 && 'root',
     n.duplicate && 'duplicate',
     path === 'in' && 'in-path',
