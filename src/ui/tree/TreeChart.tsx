@@ -12,7 +12,8 @@ import { avatarGeometry } from '../../file/images';
 import { computeIssues } from '../../model/checks';
 import { setHighlight, useUi } from '../../state/ui';
 import { lineKinds, surnameColors, surnameKey, type LineKind } from '../../layout/colors';
-import { lifespan } from '../format';
+import { lifespan, shownNames } from '../format';
+import { joinName } from '../../model/queries';
 import { genderSurname } from '../../model/names';
 import { urlFor } from '../media';
 import { useAddRelative, type RelativeKind } from '../useAddRelative';
@@ -337,7 +338,7 @@ const Card = memo(function Card({
   path?: 'in' | 'out';
 }) {
   const { t } = useTranslation();
-  const n = person.names;
+  const n = shownNames(person);
   const line1 = [n.given, n.patronymic].filter(Boolean).join(' ') || t('common.unnamed');
   const line2 = n.surname ?? '';
   const years = lifespan(person);
@@ -483,15 +484,15 @@ export function FanContent({
           .join(' ');
         return (
           <g key={s.key} className={cls} onClick={() => select(person.id)} onDoubleClick={() => setFocus(person.id)} {...contextMenuHandlers(person.id)}>
-            <title>{[person.names.given, person.names.patronymic, person.names.surname, lifespan(person)].filter(Boolean).join(' ')}</title>
+            <title>{[joinName(shownNames(person)), lifespan(person)].filter(Boolean).join(' ')}</title>
             <path d={arcPath(s)} className="fan-bg" style={tintStyle(person.id)} />
             <g transform={`translate(${rMid * Math.cos(mid)} ${rMid * Math.sin(mid)}) rotate(${rotate})`}>
               <text textAnchor="middle" y={radial ? 4 : -4} className="fan-name">
-                {cut(person.names.given ?? t('common.unnamed'), maxChars)}
+                {cut(shownNames(person).given ?? t('common.unnamed'), maxChars)}
               </text>
               {!radial && (
                 <text textAnchor="middle" y={12} className="fan-years">
-                  {cut(person.names.surname ?? '', maxChars)}
+                  {cut(shownNames(person).surname ?? '', maxChars)}
                 </text>
               )}
             </g>
@@ -502,10 +503,10 @@ export function FanContent({
         <g className={['fan-root', `card-${root.sex}`, root.id === selectedId && 'selected'].filter(Boolean).join(' ')} onClick={() => select(root.id)}>
           <circle r={FAN_CENTER_R} className="fan-bg" style={tintStyle(root.id)} />
           <text textAnchor="middle" y={-6} className="fan-name">
-            {cut(root.names.given ?? t('common.unnamed'), 14)}
+            {cut(shownNames(root).given ?? t('common.unnamed'), 14)}
           </text>
           <text textAnchor="middle" y={12} className="fan-years">
-            {cut(root.names.surname ?? '', 14)}
+            {cut(shownNames(root).surname ?? '', 14)}
           </text>
           <text textAnchor="middle" y={30} className="fan-years">
             {lifespan(root)}

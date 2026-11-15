@@ -6,7 +6,7 @@ import { download, fileNameFor } from '../../file/io';
 import { inMonth, todayYMD, upcoming, type CalEvent, type Occurrence } from '../../model/calendar';
 import type { TreeData } from '../../model/types';
 import { notify, select, useApp } from '../../state/store';
-import { useNameOf } from '../format';
+import { shownNames, useNameOf } from '../format';
 import { Avatar } from '../media';
 import { Modal } from '../Modal';
 
@@ -177,7 +177,7 @@ function MonthGrid({
                 title={`${namesOf(tree, o)} — ${text(o)}`}
                 onClick={() => select(o.personIds[0])}
               >
-                <EventIcon kind={o.kind} /> {tree.people[o.personIds[0]!]?.names.given ?? t('common.unnamed')}
+                <EventIcon kind={o.kind} /> {(tree.people[o.personIds[0]!] && shownNames(tree.people[o.personIds[0]!]!).given) ?? t('common.unnamed')}
               </button>
             ))}
             {list.length > 3 && <span className="muted small">+{list.length - 3}</span>}

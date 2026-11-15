@@ -1,12 +1,12 @@
 import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { TRUNK_H, type ArtNode, type ArtTreeLayout } from '../../layout/artTreeLayout';
+import { TRUNK_H, branchWidth, trunkHalf, type ArtNode, type ArtTreeLayout } from '../../layout/artTreeLayout';
 import type { MediaStore } from '../../file/format';
 import { avatarGeometry } from '../../file/images';
 import type { Person, TreeData } from '../../model/types';
 import { select, setFocus, useApp } from '../../state/store';
 import { useUi } from '../../state/ui';
-import { lifespan } from '../format';
+import { lifespan, shownNames } from '../format';
 import { urlFor } from '../media';
 import { contextMenuHandlers } from './cardEvents';
 import type { Viewport } from './PanZoom';
@@ -14,7 +14,7 @@ import type { Viewport } from './PanZoom';
 // Художественное «Дерево»: ствол, изогнутые ветви, люди — круглые «листья».
 // Раскладка — в layout/artTreeLayout.ts, здесь только рисование.
 
-const SPOUSE_R = 13;
+const SPOUSE_R = 17;
 const NO_MEDIA: MediaStore = {};
 /** Больше стольких людей — без декоративных листьев (ради скорости) */
 const LEAVES_LIMIT = 1500;
@@ -22,22 +22,59 @@ const LEAVES_LIMIT = 1500;
 const LEAF = 'M0 0 C 6 -7, 16 -8, 24 0 C 16 8, 6 7, 0 0 Z';
 
 const cut = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
-const initials = (p: Person) => [p.names.given, p.names.surname].map((x) => x?.trim()[0] ?? '').join('').toUpperCase() || '?';
+const initials = (p: Person) => {
+  const n = shownNames(p);
+  return [n.given, n.surname].map((x) => x?.trim()[0] ?? '').join('').toUpperCase() || '?';
+};
+const givenSurname = (p: Person) => {
+  const n = shownNames(p);
+  return [n.given, n.surname].filter(Boolean).join(' ');
+};
 
-/** Изогнутая ветвь от родителя к ребёнку: выходит по направлению родителя, входит по направлению ребёнка */
-function branchPath(parent: ArtNode, child: ArtNode): string {
+type Pt = [number, number];
+
+/** Опорные точки изогнутой ветви: выходит по направлению родителя, входит по направлению ребёнка */
+function branchPoints(parent: ArtNode, child: ArtNode): [Pt, Pt, Pt, Pt] {
   const d = Math.hypot(child.x - parent.x, child.y - parent.y);
-  const ux = Math.cos(parent.angle);
-  const uy = Math.sin(parent.angle);
-  const vx = Math.cos(child.angle);
-  const vy = Math.sin(child.angle);
-  const c1 = [parent.x + ux * d * 0.45, parent.y + uy * d * 0.45];
-  const c2 = [child.x - vx * d * 0.35, child.y - vy * d * 0.35];
-  return `M ${parent.x.toFixed(1)} ${parent.y.toFixed(1)} C ${c1[0]!.toFixed(1)} ${c1[1]!.toFixed(1)}, ${c2[0]!.toFixed(1)} ${c2[1]!.toFixed(1)}, ${child.x.toFixed(1)} ${child.y.toFixed(1)}`;
+  const c1: Pt = [parent.x + Math.cos(parent.angle) * d * 0.45, parent.y + Math.sin(parent.angle) * d * 0.45];
+  const c2: Pt = [child.x - Math.cos(child.angle) * d * 0.35, child.y - Math.sin(child.angle) * d * 0.35];
+  return [[parent.x, parent.y], c1, c2, [child.x, child.y]];
 }
 
-/** Ствол и корни: сужается кверху */
-const TRUNK = `M -16 0 C -17 70, -24 ${TRUNK_H - 50}, -40 ${TRUNK_H} Q -62 ${TRUNK_H + 10} -86 ${TRUNK_H + 16} L 86 ${TRUNK_H + 16} Q 62 ${TRUNK_H + 10} 40 ${TRUNK_H} C 24 ${TRUNK_H - 50}, 17 70, 16 0 Z`;
+const f1 = (n: number) => n.toFixed(1);
+function branchPath(parent: ArtNode, child: ArtNode): string {
+  const [a, b, c, d] = branchPoints(parent, child);
+  return `M ${f1(a[0])} ${f1(a[1])} C ${f1(b[0])} ${f1(b[1])}, ${f1(c[0])} ${f1(c[1])}, ${f1(d[0])} ${f1(d[1])}`;
+}
+
+/** Точка на ветви (t от 0 до 1) и направление в ней — для листьев вдоль ветвей */
+function pointOnBranch(parent: ArtNode, child: ArtNode, t: number): { x: number; y: number; angle: number } {
+  const [a, b, c, d] = branchPoints(parent, child);
+  const u = 1 - t;
+  const at = (i: 0 | 1) => u * u * u * a[i] + 3 * u * u * t * b[i] + 3 * u * t * t * c[i] + t * t * t * d[i];
+  const dt = (i: 0 | 1) => 3 * u * u * (b[i] - a[i]) + 6 * u * t * (c[i] - b[i]) + 3 * t * t * (d[i] - c[i]);
+  return { x: at(0), y: at(1), angle: Math.atan2(dt(1), dt(0)) };
+}
+
+/** Ствол с корнями: ширина вверху — по толщине ветвей, книзу расширяется */
+function trunkPath(top: number): string {
+  const h = TRUNK_H;
+  const mid = top * 1.25;
+  const base = top * 1.9;
+  return [
+    `M ${-top} -6`,
+    `C ${-top} ${h * 0.35}, ${-mid} ${h * 0.7}, ${-base} ${h - 6}`,
+    // Корни слева
+    `Q ${-base - 28} ${h + 6} ${-base - 58} ${h + 14}`,
+    `Q ${-base - 10} ${h + 10} ${-top * 0.6} ${h + 12}`,
+    `L ${top * 0.6} ${h + 12}`,
+    // Корни справа
+    `Q ${base + 10} ${h + 10} ${base + 58} ${h + 14}`,
+    `Q ${base + 28} ${h + 6} ${base} ${h - 6}`,
+    `C ${mid} ${h * 0.7}, ${top} ${h * 0.35}, ${top} -6`,
+    'Z',
+  ].join(' ');
+}
 
 export function ArtTreeContent({
   tree,
@@ -62,6 +99,10 @@ export function ArtTreeContent({
   const visible = (n: ArtNode, pad = 80) => n.x + pad >= vp.minX && n.x - pad <= vp.maxX && n.y + pad >= vp.minY && n.y - pad <= vp.maxY;
   const nodes = layout.nodes.filter((n) => visible(n));
   const leaves = !simple && layout.nodes.length <= LEAVES_LIMIT;
+  const root = layout.nodes[0];
+  const trunk = trunkHalf(root?.weight ?? 1);
+  // Облака кроны — только у видимых и когда людей не слишком много
+  const crown = layout.nodes.length <= LEAVES_LIMIT ? layout.nodes.filter((n) => n.gen > 0 && visible(n, layout.crownR + 40)) : [];
   const photoUrl = (p: Person | undefined) => {
     const ph = p?.photos?.[0];
     const bytes = ph ? media[ph.id] : undefined;
@@ -76,20 +117,44 @@ export function ArtTreeContent({
             <circle cx={r} cy={r} r={r} />
           </clipPath>
         ))}
+        <radialGradient id="km-art-ground">
+          <stop offset="0" className="art-ground-in" />
+          <stop offset="1" className="art-ground-out" />
+        </radialGradient>
       </defs>
-      <ellipse className="art-ground" cx={0} cy={TRUNK_H + 18} rx={240} ry={20} />
-      <path className="art-trunk" d={TRUNK} />
-      {/* Ветви: рисуем все, чьи концы рядом с экраном */}
+      {/* Крона: мягкие «облака» листвы вокруг людей; прозрачность — у группы целиком,
+          поэтому там, где облака перекрываются, цвет не темнеет */}
+      {crown.length > 0 && (
+        <g aria-hidden="true">
+          <g className="art-crown back">
+            {crown.map((n) => (
+              <circle key={n.key} cx={n.x} cy={n.y} r={layout.crownR * 1.14} />
+            ))}
+          </g>
+          <g className="art-crown">
+            {crown.map((n) => (
+              <circle key={n.key} cx={n.x} cy={n.y} r={layout.crownR} />
+            ))}
+          </g>
+        </g>
+      )}
+      <ellipse cx={0} cy={TRUNK_H + 14} rx={Math.max(260, trunk * 14)} ry={34} fill="url(#km-art-ground)" />
+      <path className="art-trunk" d={trunkPath(trunk)} />
+      {/* Ветви: толщина — по числу потомков; рисуем все, чьи концы рядом с экраном */}
       <g className={pathIds ? 'art-branches dimmed' : 'art-branches'}>
         {layout.nodes.map((n) => {
           const parent = n.parentKey ? byKey.get(n.parentKey) : undefined;
           if (!parent || (!visible(n, 400) && !visible(parent, 400))) return null;
-          return <path key={n.key} d={branchPath(parent, n)} className="art-branch" strokeWidth={Math.max(3, 20 - (n.gen - 1) * 5)} />;
+          return <path key={n.key} d={branchPath(parent, n)} className="art-branch" strokeWidth={branchWidth(n.weight)} />;
         })}
       </g>
       {leaves && (
         <g className="art-leaves" aria-hidden="true">
-          {nodes.map((n) => (n.gen === 0 ? null : <Leaves key={n.key} n={n} />))}
+          {nodes.map((n) => {
+            if (n.gen === 0) return null;
+            const parent = n.parentKey ? byKey.get(n.parentKey) : undefined;
+            return <Leaves key={n.key} n={n} parent={parent} />;
+          })}
         </g>
       )}
       {nodes.map((n) => {
@@ -113,10 +178,25 @@ export function ArtTreeContent({
   );
 }
 
-/** Несколько листиков вокруг «листа»-человека: на концах ветвей — пышнее */
-function Leaves({ n }: { n: ArtNode }) {
-  const count = n.hasChildren ? 3 : 5;
+/** Листья вокруг человека (на концах ветвей — пышнее) и пара листиков на середине ветви */
+function Leaves({ n, parent }: { n: ArtNode; parent?: ArtNode }) {
+  const count = n.hasChildren ? 4 : 7;
   const out = [];
+  if (parent) {
+    for (const [i, t] of [0.45, 0.65].entries()) {
+      const pt = pointOnBranch(parent, n, t);
+      const side = i % 2 ? -1 : 1;
+      const a = pt.angle + side * 0.9;
+      out.push(
+        <path
+          key={`b${i}`}
+          d={LEAF}
+          className={i ? 'art-leaf alt' : 'art-leaf'}
+          transform={`translate(${f1(pt.x)} ${f1(pt.y)}) rotate(${f1((a * 180) / Math.PI)}) scale(0.85)`}
+        />,
+      );
+    }
+  }
   for (let i = 0; i < count; i++) {
     // Детерминированный «случайный» разброс — от порядкового номера
     const spread = n.hasChildren ? 1.6 : 2.6;
@@ -158,7 +238,10 @@ const ArtPerson = memo(function ArtPerson({
 }) {
   const { t } = useTranslation();
   const years = lifespan(person);
-  const name = [person.names.given, person.names.surname].filter(Boolean).join(' ') || t('common.unnamed');
+  const name = givenSurname(person) || t('common.unnamed');
+  const label = cut(shownNames(person).given ?? t('common.unnamed'), 16);
+  // Ширина подложки подписи — примерно по длине текста
+  const labelW = Math.max(label.length * 8.4, (years ?? '').length * 6.4) + 18;
   const cls = [
     'art-person',
     `card-${person.sex}`,
@@ -177,8 +260,8 @@ const ArtPerson = memo(function ArtPerson({
         // чтобы не закрывать подпись под кружком
         const side = i % 2 ? -1 : 1;
         const k = Math.floor(i / 2);
-        const sx = side * (n.r + SPOUSE_R - 3 + k * (SPOUSE_R * 2 + 2));
-        const sy = n.r * 0.25;
+        const sx = side * (n.r + SPOUSE_R - 2 + k * (SPOUSE_R * 2 + 3));
+        const sy = -n.r * 0.15;
         return (
           <g
             key={s.person.id}
@@ -188,14 +271,14 @@ const ArtPerson = memo(function ArtPerson({
             onDoubleClick={(e) => (e.stopPropagation(), setFocus(s.person.id))}
             {...contextMenuHandlers(s.person.id)}
           >
-            <title>{[s.person.names.given, s.person.names.surname].filter(Boolean).join(' ')}</title>
+            <title>{givenSurname(s.person)}</title>
             <circle r={SPOUSE_R} className="art-disc" />
             {s.photo ? (
               <svg x={-SPOUSE_R} y={-SPOUSE_R} width={SPOUSE_R * 2} height={SPOUSE_R * 2} overflow="hidden">
                 <image href={s.photo} {...avatarGeometry(s.person.photos![0]!, SPOUSE_R * 2)} clipPath={`url(#km-art-${SPOUSE_R})`} preserveAspectRatio="none" />
               </svg>
             ) : (
-              <text className="art-initials" y={4} textAnchor="middle" fontSize={10}>
+              <text className="art-initials" y={4} textAnchor="middle" fontSize={11}>
                 {initials(s.person)}
               </text>
             )}
@@ -224,16 +307,17 @@ const ArtPerson = memo(function ArtPerson({
         )}
       </g>
       {!simple && (
-        <>
-          <text className="art-name" y={n.r + 18} textAnchor="middle">
-            {cut(person.names.given ?? t('common.unnamed'), 16)}
+        <g className="art-label">
+          <rect className="art-label-bg" x={-labelW / 2} y={n.r + 5} width={labelW} height={years ? 36 : 22} rx={9} />
+          <text className="art-name" y={n.r + 21} textAnchor="middle">
+            {label}
           </text>
           {years && (
-            <text className="art-years" y={n.r + 32} textAnchor="middle">
+            <text className="art-years" y={n.r + 35} textAnchor="middle">
               {years}
             </text>
           )}
-        </>
+        </g>
       )}
       {n.more && (
         <g className="more" onClick={(e) => (e.stopPropagation(), setFocus(person.id))} transform={`translate(0 ${-n.r - 4})`}>

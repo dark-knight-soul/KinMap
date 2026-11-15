@@ -10,6 +10,7 @@ import type {
   GedcomExtra,
   GedNode,
   LifeEvent,
+  NameVariant,
   Person,
   PersonId,
   PersonNames,
@@ -118,6 +119,19 @@ function parseName(node: GedNode): PersonNames {
   }
   if (given) names.given = given;
   if (surn || surname) names.surname = surn || surname;
+  // Имя на других языках: TRAN (7.0, язык в LANG), ROMN/FONE (5.5.1, язык в TYPE)
+  const variants: NameVariant[] = [];
+  for (const tr of (node.children ?? []).filter((c) => c.tag === 'TRAN' || c.tag === 'ROMN' || c.tag === 'FONE')) {
+    const lang = (child(tr, 'LANG') ?? child(tr, 'TYPE'))?.value?.trim();
+    if (!lang) continue;
+    const { given: g, patronymic: p, surname: s } = parseName({ ...tr, children: (tr.children ?? []).filter((c) => c.tag !== 'TRAN') });
+    const v: NameVariant = { lang };
+    if (g) v.given = g;
+    if (p) v.patronymic = p;
+    if (s) v.surname = s;
+    if (g || p || s) variants.push(v);
+  }
+  if (variants.length) names.variants = variants;
   return names;
 }
 

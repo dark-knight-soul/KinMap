@@ -1,6 +1,7 @@
-import { ArrowLeft, Crosshair, Star, Trash, X } from 'lucide-react';
+import { ArrowLeft, ChevronsDown, ChevronsUp, Crosshair, Star, Trash, X } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { knownGenerations } from '../model/generations';
 import { findKinship } from '../model/kinship';
 import { nameKinship } from '../model/kinshipTerms';
 import { patronymicSuggestions } from '../model/patronymic';
@@ -8,13 +9,14 @@ import { removePerson, setRootPerson, updatePerson } from '../model/ops';
 import { childrenOf, isLiving, parentsOf, siblingsOf, spousesOf } from '../model/queries';
 import type { LifeEvent, Person, PersonNames } from '../model/types';
 import { apply, select, setFocus, useApp } from '../state/store';
-import { setView, useView } from '../state/view';
+import { GEN_MAX, GEN_MIN, setView, useView } from '../state/view';
 import { Segmented, SexToggle } from './controls';
 import { DateField } from './DateField';
 import { LifeEventsSection } from './LifeEvents';
 import { lifespan, useDateLocale, useNameOf } from './format';
 import { PersonIssues } from './IssuesView';
 import { KinshipDialog } from './KinshipDialog';
+import { NameVariantsField } from './NameVariantsField';
 import { Avatar } from './media';
 import { ConfirmDialog } from './Modal';
 import { PhotosSection } from './photos/PhotosSection';
@@ -140,6 +142,7 @@ export function PersonEditor() {
       </div>
 
       <RelationToRoot personId={id} />
+      <GenerationsInfo personId={id} />
       <PersonIssues personId={id} />
 
       <div className="tabs" role="tablist">
@@ -177,6 +180,8 @@ export function PersonEditor() {
               + {t('person.birthSurname')}
             </button>
           )}
+
+          <NameVariantsField person={person} update={update} />
 
           {/* Пол и статус — друг под другом: рядом кнопки не помещаются в ширину карточки */}
           <div className="form-stack">
@@ -283,6 +288,38 @@ export function PersonEditor() {
         />
       )}
     </section>
+  );
+}
+
+/** «Известно поколений: ↑ 3 поколения предков (6 чел.) · ↓ 2 поколения потомков (4 чел.)»; по клику — схема */
+function GenerationsInfo({ personId }: { personId: string }) {
+  const { t } = useTranslation();
+  const tree = useApp((s) => s.session!.history.present);
+  const g = useMemo(() => knownGenerations(tree, personId), [tree, personId]);
+  const show = (chart: 'ancestors' | 'descendants', n: number) => {
+    const gens = Math.min(GEN_MAX, Math.max(GEN_MIN, n));
+    setView(chart === 'ancestors' ? { mode: 'tree', chart, up: gens } : { mode: 'tree', chart, down: gens });
+    setFocus(personId);
+  };
+  if (!g.up && !g.down) return <p className="gen-info muted small">{t('gens.none')}</p>;
+  return (
+    <div className="gen-info">
+      <span className="muted small">{t('gens.title')}:</span>
+      {g.up > 0 && (
+        <button type="button" className="gen-chip" title={t('gens.showAncestors')} onClick={() => show('ancestors', g.up)}>
+          <ChevronsUp size={14} strokeWidth={2} aria-hidden="true" />
+          {t('gens.up', { count: g.up })}
+          <span className="muted">· {t('gens.people', { count: g.upPeople })}</span>
+        </button>
+      )}
+      {g.down > 0 && (
+        <button type="button" className="gen-chip" title={t('gens.showDescendants')} onClick={() => show('descendants', g.down)}>
+          <ChevronsDown size={14} strokeWidth={2} aria-hidden="true" />
+          {t('gens.down', { count: g.down })}
+          <span className="muted">· {t('gens.people', { count: g.downPeople })}</span>
+        </button>
+      )}
+    </div>
   );
 }
 

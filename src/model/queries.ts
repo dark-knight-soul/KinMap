@@ -1,5 +1,5 @@
 import { approxYear } from './dates';
-import type { ChildRelation, Family, FamilyId, Person, PersonId, TreeData } from './types';
+import type { ChildRelation, Family, FamilyId, Person, PersonId, PersonNames, TreeData } from './types';
 
 // Вопросы к древу: кто родители, дети, супруги, братья и сёстры.
 // Только чтение — изменения делаются в ops.ts.
@@ -152,7 +152,11 @@ export function isLiving(person: Person, currentYear = new Date().getFullYear())
 
 /** Полное имя: Имя Отчество Фамилия */
 export function fullName(person: Person): string {
-  const n = person.names;
+  return joinName(person.names);
+}
+
+/** Имя Отчество Фамилия из полей имени (в том числе варианта на другом языке) */
+export function joinName(n: PersonNames): string {
   return [n.given, n.patronymic, n.surname].filter(Boolean).join(' ').trim();
 }
 
@@ -170,6 +174,8 @@ export function matchesQuery(person: Person, query: string): boolean {
   const words = norm(query).split(/\s+/).filter(Boolean);
   if (!words.length) return true;
   const n = person.names;
-  const hay = norm([n.given, n.patronymic, n.surname, n.birthSurname].filter(Boolean).join(' '));
+  // Ищем и по именам на других языках: «Ivan» найдёт «Ивана»
+  const variants = (n.variants ?? []).flatMap((v) => [v.given, v.patronymic, v.surname]);
+  const hay = norm([n.given, n.patronymic, n.surname, n.birthSurname, ...variants].filter(Boolean).join(' '));
   return words.every((w) => hay.includes(w));
 }

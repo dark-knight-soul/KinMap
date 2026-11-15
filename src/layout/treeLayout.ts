@@ -534,13 +534,13 @@ function allRaw(tree: TreeData, focusId: PersonId): ChartLayout {
 
   const expanded = new Set<PersonId>();
   const shared: DescShared = { doneFamilies: new Set(), spouses: new Set() };
-  let cursor = 0;
   const placeBranch = (root: PersonId) => {
     const node = buildDesc(tree, root, 0, ALL_DEPTH, expanded, shared);
     // Родоначальник уже стоит супругом в другой ветке и своих союзов у него не осталось
     if (node.duplicate) return;
-    placeDesc(b, node, cursor, gen.get(root)! - minGen);
-    cursor += node.width + D.hGap * 3;
+    const sub = new Builder();
+    placeDesc(sub, node, 0, gen.get(root)! - minGen);
+    mergeBranch(b, sub);
   };
   for (const root of order) if (!hasParents(root) && !expanded.has(root)) placeBranch(root);
   // Подстраховка от ошибок в данных (например, человек записан своим же предком):
@@ -569,4 +569,116 @@ function keepOneSolidCard(cards: CardBox[]): void {
       else solid.add(c.personId);
     }
   }
+}
+
+/** Отступ между соседними ветками «Всего древа» */
+const BRANCH_GAP_ = () => D.hGap * 2;
+
+/**
+ * Поставить ветку `sub` на общую схему `b`.
+ *
+ * Если в ветке есть «ссылки» на людей, уже нарисованных на схеме (например, дочь,
+ * которая стоит рядом с мужем в другой ветке), ветка ставится как можно ближе над ними,
+ * а вместо карточки-ссылки к настоящей карточке человека проводится линия.
+ * Ветку без таких ссылок ставим справа от всего, что уже есть.
+ */
+function mergeBranch(b: Builder, sub: Builder): void {
+  const solid = new Map<PersonId, CardBox>();
+  for (const c of b.cards) if (!c.duplicate && !solid.has(c.personId)) solid.set(c.personId, c);
+
+  // Ссылки, которые можно заменить линией: карточка-ссылка (не супруг) на уже нарисованного человека
+  const links = sub.cards.filter((c) => c.role === 'main' && c.duplicate && solid.has(c.personId));
+  const gap = BRANCH_GAP_();
+
+  // Где ветке хотелось бы стоять: ссылки — над своими людьми; иначе — справа от всего
+  let desired: number;
+  if (links.length) {
+    desired = links.reduce((sum, c) => sum + (solid.get(c.personId)!.x - c.x), 0) / links.length;
+  } else {
+    const right = b.cards.length ? Math.max(...b.cards.map((c) => c.x + D.w)) : 0;
+    const left = sub.cards.length ? Math.min(...sub.cards.map((c) => c.x)) : 0;
+    desired = b.cards.length ? right + gap * 1.5 - left : 0;
+  }
+
+  // Ссылки, которые заменяются линиями, местом не считаются
+  const linkSet = new Set(links);
+  const shift = links.length ? freeShift(b.cards, sub.cards.filter((c) => !linkSet.has(c)), desired, gap) : desired;
+
+  // Входящие линии ссылок: вертикаль от шины родителей вниз к верху карточки
+  const near = (a: number, z: number) => Math.abs(a - z) < 0.01;
+  const rerouted = new Map<LinkLine, [number, number][]>();
+  const dropped = new Set<CardBox>();
+  for (const c of links) {
+    const target = solid.get(c.personId)!;
+    const cx = c.x + D.w / 2;
+    const line = sub.lines.find((l) => {
+      const end = l.points[l.points.length - 1]!;
+      return l.points.length === 2 && near(end[0], cx) && near(end[1], c.y);
+    });
+    if (!line) continue;
+    const busY = line.points[0]![1];
+    // Настоящая карточка должна быть ниже шины родителей — иначе оставляем ссылку
+    if (target.y <= busY) continue;
+    const tx = target.x + D.w / 2 - shift;
+    // Горизонталь ведём не по шине родителей, а ниже — у самой карточки, чтобы она
+    // не сливалась с шинами других семей на той же высоте
+    const lowY = Math.max(busY, target.y - Math.min(14, D.vGap / 4));
+    rerouted.set(line, [
+      [cx, busY],
+      [cx, lowY],
+      [tx, lowY],
+      [tx, target.y],
+    ]);
+    dropped.add(c);
+  }
+
+  for (const c of sub.cards) {
+    if (dropped.has(c)) continue;
+    const { key: _key, ...rest } = c;
+    b.card({ ...rest, x: c.x + shift });
+  }
+  for (const l of sub.lines) {
+    const pts = rerouted.get(l) ?? l.points;
+    b.line(
+      pts.map(([x, y]) => [x + shift, y] as [number, number]),
+      l.dashed,
+    );
+  }
+}
+
+/**
+ * Ближайший к `desired` сдвиг ветки, при котором её карточки не налезают на уже стоящие.
+ * Проверяем сам `desired` и сдвиги «вплотную слева/справа» к каждой занятой полосе строки.
+ */
+function freeShift(placed: CardBox[], cards: CardBox[], desired: number, gap: number): number {
+  if (!cards.length) return desired;
+  // Занятые полосы по строкам (y → отрезки [x0, x1]) у уже стоящих карточек
+  const rows = new Map<number, [number, number][]>();
+  for (const c of placed) {
+    const row = rows.get(c.y) ?? [];
+    row.push([c.x, c.x + D.w]);
+    rows.set(c.y, row);
+  }
+  // Ветка в каждой строке — одним отрезком (с запасом)
+  const span = new Map<number, [number, number]>();
+  for (const c of cards) {
+    const cur = span.get(c.y);
+    span.set(c.y, cur ? [Math.min(cur[0], c.x), Math.max(cur[1], c.x + D.w)] : [c.x, c.x + D.w]);
+  }
+  const fits = (sh: number) => {
+    for (const [y, [a, z]] of span) {
+      for (const [e0, e1] of rows.get(y) ?? []) if (a + sh < e1 + gap && e0 < z + sh + gap) return false;
+    }
+    return true;
+  };
+  const candidates = [desired];
+  for (const [y, [a, z]] of span) {
+    for (const [e0, e1] of rows.get(y) ?? []) candidates.push(e1 + gap - a, e0 - gap - z);
+  }
+  candidates.sort((p, q) => Math.abs(p - desired) - Math.abs(q - desired));
+  for (const sh of candidates) if (fits(sh)) return sh;
+  // Запасной вариант: правее всего, что уже стоит
+  const right = Math.max(...placed.map((c) => c.x + D.w));
+  const left = Math.min(...cards.map((c) => c.x));
+  return right + gap - left;
 }

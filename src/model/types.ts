@@ -71,6 +71,16 @@ export interface PersonNames {
   surname?: string;
   /** Фамилия при рождении (девичья) */
   birthSurname?: string;
+  /** Имя на других языках (показывается вместо основного, если язык совпадает с языком интерфейса) */
+  variants?: NameVariant[];
+}
+
+/** Имя на другом языке: код языка (ru, uz, uz-Cyrl, en…) и поля имени */
+export interface NameVariant {
+  lang: string;
+  given?: string;
+  patronymic?: string;
+  surname?: string;
 }
 
 export interface Person {

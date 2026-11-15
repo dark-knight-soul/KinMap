@@ -174,6 +174,17 @@ function nameNode(p: Person, priv: boolean, v7: boolean): GedNode {
   // Отчество — собственным тегом (стандарт его не знает); в 7.0 такие теги тоже допустимы
   if (!priv && n.patronymic) node.children!.push({ tag: '_PATR', value: n.patronymic });
   if (priv && v7) node.children!.push({ tag: 'TYPE', value: 'OTHER', children: [{ tag: 'PHRASE', value: 'Living person — hidden' }] });
+  // Имя на других языках: в 7.0 — TRAN с LANG, в 5.5.1 — ROMN с TYPE (код языка)
+  if (!priv) {
+    for (const v of n.variants ?? []) {
+      const g = [v.given, v.patronymic].filter(Boolean).join(' ');
+      const sub: GedNode[] = [v7 ? { tag: 'LANG', value: v.lang } : { tag: 'TYPE', value: v.lang }];
+      if (v.given) sub.push({ tag: 'GIVN', value: v.given });
+      if (v.surname) sub.push({ tag: 'SURN', value: v.surname });
+      if (v.patronymic) sub.push({ tag: '_PATR', value: v.patronymic });
+      node.children!.push({ tag: v7 ? 'TRAN' : 'ROMN', value: `${g} /${v.surname ?? ''}/`.trim(), children: sub });
+    }
+  }
   if (!node.children!.length) delete node.children;
   return node;
 }

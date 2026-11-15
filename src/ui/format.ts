@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import { approxYear, type DateLocale } from '../model/dates';
-import { fullName } from '../model/queries';
-import type { Person } from '../model/types';
+import { namesIn } from '../model/nameVariants';
+import { joinName } from '../model/queries';
+import type { Person, PersonNames } from '../model/types';
 
 // Помощники вывода: язык дат, «годы жизни», имя или «Без имени».
 
@@ -31,7 +33,12 @@ export function lifespan(person: Person): string {
   return '';
 }
 
+/** Имя для показа: если у человека есть вариант на языке интерфейса — он, иначе основное */
+export function shownNames(p: Person): PersonNames {
+  return namesIn(p, i18n.resolvedLanguage);
+}
+
 export function useNameOf(): (p: Person | undefined) => string {
   const { t } = useTranslation();
-  return (p) => (p ? fullName(p) || t('common.unnamed') : '');
+  return (p) => (p ? joinName(shownNames(p)) || t('common.unnamed') : '');
 }

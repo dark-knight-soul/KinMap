@@ -11,8 +11,8 @@ import type { Bounds } from './types';
 export const ART_ROOT_R = 38;
 export const ART_NODE_R = 28;
 /** Минимальное расстояние между соседними «листьями» на внешнем ярусе */
-const MIN_ARC = 92;
-const MIN_STEP = 150;
+const MIN_ARC = 124;
+const MIN_STEP = 165;
 /** Крона шире, чем выше, — так больше похоже на дерево */
 const WIDEN = 1.25;
 /** Сектор кроны: от −π + PAD до −PAD (вверх) */
@@ -35,13 +35,22 @@ export interface ArtNode {
   duplicate?: boolean;
   /** Есть потомки за пределом показанных поколений */
   more?: boolean;
+  /** Сколько «концевых» потомков у ветви (сам человек — 1): от этого толщина ветви */
+  weight: number;
 }
 
 export interface ArtTreeLayout {
   rootId: PersonId;
   nodes: ArtNode[];
   bounds: Bounds;
+  /** Радиус «облака» кроны вокруг каждого человека */
+  crownR: number;
 }
+
+/** Толщина ветви к человеку — растёт с числом его потомков */
+export const branchWidth = (weight: number) => Math.min(30, 4 + 3.4 * Math.sqrt(weight));
+/** Половина ширины ствола вверху — по толщине всех ветвей */
+export const trunkHalf = (rootWeight: number) => Math.max(18, branchWidth(rootWeight) * 0.9 + 8);
 
 interface TNode {
   id: PersonId;
@@ -52,7 +61,7 @@ interface TNode {
 }
 
 export function layoutArtTree(tree: TreeData, rootId: PersonId, maxGen: number): ArtTreeLayout {
-  const empty: ArtTreeLayout = { rootId, nodes: [], bounds: { minX: -100, minY: -100, maxX: 100, maxY: TRUNK_H } };
+  const empty: ArtTreeLayout = { rootId, nodes: [], bounds: { minX: -100, minY: -100, maxX: 100, maxY: TRUNK_H }, crownR: 0 };
   if (!tree.people[rootId]) return empty;
   const seen = new Set<PersonId>();
   const birth = (id: PersonId) => approxYear(tree.people[id]?.birth?.date) ?? 99999;
@@ -105,6 +114,7 @@ export function layoutArtTree(tree: TreeData, rootId: PersonId, maxGen: number):
       hasChildren: n.children.length > 0,
       duplicate: n.duplicate || undefined,
       more: n.more || undefined,
+      weight: n.weight,
     });
     let a = a0;
     for (const c of n.children) {
@@ -115,14 +125,18 @@ export function layoutArtTree(tree: TreeData, rootId: PersonId, maxGen: number):
   };
   place(root, 0, -Math.PI + PAD, -PAD);
 
-  // Рамка: «листья» с подписями, ствол и земля
-  let minX = -160;
-  let maxX = 160;
+  // Крона — мягкое «облако» вокруг людей: радиус от шага между ярусами
+  const crownR = Math.min(130, Math.max(80, step * 0.62));
+
+  // Рамка: «листья» с подписями, крона, ствол и земля
+  let minX = -260;
+  let maxX = 260;
   let minY = 0;
   for (const nd of nodes) {
-    minX = Math.min(minX, nd.x - nd.r - 70);
-    maxX = Math.max(maxX, nd.x + nd.r + 70);
-    minY = Math.min(minY, nd.y - nd.r - 40);
+    const pad = Math.max(nd.r + 75, nd.gen ? crownR : 0);
+    minX = Math.min(minX, nd.x - pad);
+    maxX = Math.max(maxX, nd.x + pad);
+    minY = Math.min(minY, nd.y - Math.max(nd.r + 40, nd.gen ? crownR : 0));
   }
-  return { rootId, nodes, bounds: { minX, minY, maxX, maxY: TRUNK_H + 50 } };
+  return { rootId, nodes, bounds: { minX, minY, maxX, maxY: TRUNK_H + 50 }, crownR };
 }

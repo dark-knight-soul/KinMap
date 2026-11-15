@@ -1471,9 +1471,16 @@ kbd {
   --tree-leaf-2: #86bf62;
   --tree-ground: color-mix(in srgb, #6b8e23 28%, var(--canvas-bg));
 }
-.art-ground { fill: var(--tree-ground); }
+.art-ground-in { stop-color: var(--tree-ground); stop-opacity: 1; }
+.art-ground-out { stop-color: var(--tree-ground); stop-opacity: 0; }
+/* Крона: заливка у кружков сплошная, прозрачность — у группы (без потемнения на пересечениях) */
+.art-crown { fill: var(--tree-leaf); opacity: 0.16; }
+.art-crown.back { fill: var(--tree-leaf-2); opacity: 0.1; }
+.art-label-bg { fill: color-mix(in srgb, var(--canvas-bg) 82%, transparent); }
 .art-trunk { fill: var(--tree-bark); }
 .art-branch { fill: none; stroke: var(--tree-bark); stroke-linecap: round; }
+.art-spouse { cursor: pointer; }
+.art-spouse:hover .art-disc { stroke: var(--accent); }
 .art-branches { transition: opacity 0.2s; }
 .art-branches.dimmed { opacity: 0.35; }
 .art-leaf { fill: var(--tree-leaf); opacity: 0.9; }
@@ -1499,8 +1506,9 @@ kbd {
   stroke-width: 4px;
   stroke-linejoin: round;
 }
-.art-name { font-size: 13px; font-weight: 600; }
-.art-years { font-size: 11px; fill: var(--muted); }
+.art-label { pointer-events: none; }
+.art-name { font-size: 14px; font-weight: 600; }
+.art-years { font-size: 11.5px; fill: var(--muted); }
 
 /* Лента времени */
 .timeline { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--canvas-bg); }
@@ -1662,3 +1670,21 @@ kbd {
   .match-row > svg { display: none; }
   .merge-new ul { columns: 1; }
 }
+
+/* Имя на других языках */
+.name-variants { display: flex; flex-direction: column; gap: 10px; }
+.name-variants-head { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; font-size: 0.82rem; font-weight: 600; color: var(--muted); }
+.name-variants-head svg { align-self: center; }
+.name-variants-head small { font-weight: 400; }
+.name-variant { border: 1px solid var(--border); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.name-variant-top { display: flex; gap: 6px; align-items: center; }
+.name-variant-top select { flex: 1; min-width: 0; }
+
+/* Известные поколения в карточке человека */
+.gen-info { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; }
+.gen-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.82rem; padding: 3px 9px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer;
+}
+.gen-chip:hover { border-color: var(--accent); }

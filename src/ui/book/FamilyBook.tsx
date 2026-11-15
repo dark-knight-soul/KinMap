@@ -4,9 +4,9 @@ import type { MediaStore } from '../../file/format';
 import { approxYear, formatFuzzyDate, type DateLocale } from '../../model/dates';
 import { sortEvents } from '../../model/events';
 import { ancestorReport, descendantReport, type AncEntry, type DescEntry } from '../../model/reports';
-import { childrenOf, fullName, isLiving, parentsOf, sortKey, spousesOf } from '../../model/queries';
+import { childrenOf, isLiving, joinName, parentsOf, sortKey, spousesOf } from '../../model/queries';
 import type { LifeEvent, Person, PersonId, TreeData } from '../../model/types';
-import { useDateLocale } from '../format';
+import { shownNames, useDateLocale } from '../format';
 import { urlFor } from '../media';
 
 // «Книга семьи» для печати и сохранения в PDF: обложка, содержание, родословные росписи,
@@ -58,7 +58,7 @@ export function FamilyBook({ tree, media, opts }: { tree: TreeData; media: Media
   }, [desc, anc]);
 
   const hidden = (p: Person) => opts.hideLiving && isLiving(p, year);
-  const name = (p: Person | undefined) => (p ? fullName(p) || t('common.unnamed') : '');
+  const name = (p: Person | undefined) => (p ? joinName(shownNames(p)) || t('common.unnamed') : '');
   const date = (ev: LifeEvent | undefined) => formatFuzzyDate(ev?.date, locale);
   const lifeLine = (p: Person) => {
     if (hidden(p)) return '';
@@ -201,7 +201,8 @@ function ancGenTitle(t: T, gen: number): string {
 
 /** «Демидов Иван Петрович» — фамилия первой, для указателя */
 function indexName(p: Person): string {
-  return [p.names.surname, p.names.given, p.names.patronymic].filter(Boolean).join(' ');
+  const n = shownNames(p);
+  return [n.surname, n.given, n.patronymic].filter(Boolean).join(' ');
 }
 
 function shortYears(p: Person): string {

@@ -7,6 +7,7 @@ import {
   type GedcomExtra,
   type GedNode,
   type LifeEvent,
+  type NameVariant,
   type Person,
   type PersonEvent,
   type PersonPhoto,
@@ -191,6 +192,21 @@ export function normalizeTree(raw: unknown): { tree: TreeData; warnings: LoadWar
       for (const field of ['given', 'patronymic', 'surname', 'birthSurname'] as const) {
         const s = str(names[field]);
         if (s) person.names[field] = s;
+      }
+      // Имя на других языках
+      if (Array.isArray(names.variants)) {
+        const variants: NameVariant[] = [];
+        for (const v of names.variants) {
+          const lang = isObj(v) ? str(v.lang) : undefined;
+          if (!isObj(v) || !lang) continue;
+          const nv: NameVariant = { lang };
+          for (const f of ['given', 'patronymic', 'surname'] as const) {
+            const s = str(v[f]);
+            if (s) nv[f] = s;
+          }
+          if (nv.given || nv.patronymic || nv.surname) variants.push(nv);
+        }
+        if (variants.length) person.names.variants = variants;
       }
       const birth = cleanEvent(value.birth);
       if (birth) person.birth = birth;
