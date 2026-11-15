@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { TRUNK_H, branchWidth, trunkHalf, type ArtNode, type ArtTreeLayout } from '../../layout/artTreeLayout';
+import { ART_GHOST_R, TRUNK_H, branchWidth, trunkHalf, type ArtGhost, type ArtNode, type ArtTreeLayout } from '../../layout/artTreeLayout';
+import type { RelativeKind } from '../useAddRelative';
 import type { MediaStore } from '../../file/format';
 import { avatarGeometry } from '../../file/images';
 import type { Person, TreeData } from '../../model/types';
@@ -84,6 +85,7 @@ export function ArtTreeContent({
   focusId,
   tints,
   print = false,
+  onQuickAdd,
 }: {
   tree: TreeData;
   layout: ArtTreeLayout;
@@ -91,9 +93,12 @@ export function ArtTreeContent({
   selectedId?: string;
   /** Человек в центре схемы — если дерево растёт от его предка, он подсвечен */
   focusId?: string;
+  /** Пустые места «+ отец / + мать» в родословном дереве */
+  onQuickAdd?: (personId: string, kind: RelativeKind) => void;
   tints?: Map<string, string>;
   print?: boolean;
 }) {
+  const { t } = useTranslation();
   const media = useApp((s) => s.session?.media ?? NO_MEDIA);
   const highlight = useUi((s) => s.highlight);
   const pathIds = useMemo(() => (highlight && !print ? new Set(highlight.ids) : null), [highlight, print]);
@@ -101,6 +106,7 @@ export function ArtTreeContent({
   const simple = !print && vp.scale < 0.3;
   const visible = (n: ArtNode, pad = 80) => n.x + pad >= vp.minX && n.x - pad <= vp.maxX && n.y + pad >= vp.minY && n.y - pad <= vp.maxY;
   const nodes = layout.nodes.filter((n) => visible(n));
+  const visibleXY = (x: number, y: number, pad = 80) => x + pad >= vp.minX && x - pad <= vp.maxX && y + pad >= vp.minY && y - pad <= vp.maxY;
   const leaves = !simple && layout.nodes.length <= LEAVES_LIMIT;
   const root = layout.nodes[0];
   const trunk = trunkHalf(root?.weight ?? 1);
@@ -138,6 +144,17 @@ export function ArtTreeContent({
       )}
       <ellipse cx={0} cy={TRUNK_H + 14} rx={Math.max(260, trunk * 14)} ry={34} fill="url(#km-art-ground)" />
       <path className="art-trunk" d={trunkPath(trunk)} />
+      {/* Родословное дерево: где чей род */}
+      {layout.mode === 'ancestors' && !simple && layout.nodes.length > 1 && (
+        <g className="art-sides" aria-hidden="true">
+          <text x={-trunk * 1.6 - 30} y={TRUNK_H * 0.72} textAnchor="end">
+            ← {t('tree.fatherSide')}
+          </text>
+          <text x={trunk * 1.6 + 30} y={TRUNK_H * 0.72} textAnchor="start">
+            {t('tree.motherSide')} →
+          </text>
+        </g>
+      )}
       {/* Ветви: толщина — по числу потомков; рисуем все, чьи концы рядом с экраном */}
       <g className={pathIds ? 'art-branches dimmed' : 'art-branches'}>
         {layout.nodes.map((n) => {
@@ -146,6 +163,16 @@ export function ArtTreeContent({
           return <path key={n.key} d={branchPath(parent, n)} className="art-branch" strokeWidth={branchWidth(n.weight)} />;
         })}
       </g>
+      {/* Пустые места для неизвестных родителей: по клику — добавить */}
+      {!print && onQuickAdd && !simple && layout.ghosts.length > 0 && (
+        <g className="art-ghosts">
+          {layout.ghosts.map((g) => {
+            const parent = byKey.get(g.parentKey);
+            if (!parent || (!visibleXY(g.x, g.y) && !visible(parent))) return null;
+            return <Ghost key={g.key} g={g} parent={parent} label={t(g.kind === 'father' ? 'relations.addFather' : 'relations.addMother')} onAdd={onQuickAdd} />;
+          })}
+        </g>
+      )}
       {leaves && (
         <g className="art-leaves" aria-hidden="true">
           {nodes.map((n) => {
@@ -173,6 +200,34 @@ export function ArtTreeContent({
           />
         );
       })}
+    </g>
+  );
+}
+
+/** Пустое место для неизвестного отца или матери: пунктирная веточка и кружок «+» */
+function Ghost({
+  g,
+  parent,
+  label,
+  onAdd,
+}: {
+  g: ArtGhost;
+  parent: ArtNode;
+  label: string;
+  onAdd: (personId: string, kind: RelativeKind) => void;
+}) {
+  // Веточка короче обычной: от человека в сторону пустого места
+  const d = `M ${f1(parent.x)} ${f1(parent.y)} L ${f1(g.x)} ${f1(g.y)}`;
+  return (
+    <g className="art-ghost" role="button" aria-label={label} onClick={(e) => (e.stopPropagation(), onAdd(g.childId, g.kind))}>
+      <path d={d} className="art-ghost-branch" />
+      <circle cx={g.x} cy={g.y} r={ART_GHOST_R} className="art-ghost-disc" />
+      <text x={g.x} y={g.y + 6} textAnchor="middle" className="art-ghost-plus">
+        +
+      </text>
+      <text x={g.x} y={g.y + ART_GHOST_R + 15} textAnchor="middle" className="art-ghost-label">
+        {label.replace(/^\+\s*/, '')}
+      </text>
     </g>
   );
 }

@@ -24,11 +24,26 @@ export interface ViewState {
   horizontal: boolean;
   /** Лента времени: показывать исторические события */
   history: boolean;
+  /** «Дерево»: предки (родословное, по умолчанию) или потомки */
+  artMode: 'ancestors' | 'descendants';
+  /** «Дерево» предков: сколько поколений (по традиции — семь) */
+  artUp: number;
 }
 
 export const GEN_MIN = 1;
 export const GEN_MAX = 12;
-const DEFAULTS: ViewState = { mode: 'tree', chart: 'family', up: 3, down: 3, color: 'sex', minimap: true, horizontal: false, history: true };
+const DEFAULTS: ViewState = {
+  mode: 'tree',
+  chart: 'family',
+  up: 3,
+  down: 3,
+  color: 'sex',
+  minimap: true,
+  horizontal: false,
+  history: true,
+  artMode: 'ancestors',
+  artUp: 7,
+};
 
 function load(): ViewState {
   try {
@@ -44,6 +59,8 @@ function load(): ViewState {
       minimap: typeof raw.minimap === 'boolean' ? raw.minimap : DEFAULTS.minimap,
       horizontal: typeof raw.horizontal === 'boolean' ? raw.horizontal : DEFAULTS.horizontal,
       history: typeof raw.history === 'boolean' ? raw.history : DEFAULTS.history,
+      artMode: raw.artMode === 'descendants' ? 'descendants' : 'ancestors',
+      artUp: clamp(raw.artUp, DEFAULTS.artUp),
     };
   } catch {
     return DEFAULTS;

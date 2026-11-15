@@ -292,6 +292,8 @@ export const ru = {
     circle: 'Круг',
     tree: 'Дерево',
     all: 'Всё древо',
+    artAncestorsHint: 'Родословное дерево: предки по отцу и по матери',
+    artDescendantsHint: 'Дерево потомков: дети, внуки, правнуки',
     rotate: 'Повернуть: предки слева, потомки справа',
     up: 'Поколений вверх',
     down: 'вниз',
@@ -311,6 +313,8 @@ export const ru = {
     moreAbove: 'Есть ещё предки — показать',
     moreBelow: 'Есть ещё потомки — показать',
     back: '← К древу',
+    fatherSide: 'Род отца',
+    motherSide: 'Род матери',
     center: 'В центр схемы',
   },
   photos: {

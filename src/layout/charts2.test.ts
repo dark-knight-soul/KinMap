@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createBigTree, createDemoTree } from '../model/demo';
+import { addPerson, createTree } from '../model/ops';
 import type { TreeData } from '../model/types';
-import { artTreeRoot, layoutArtTree } from './artTreeLayout';
+import { artTreeRoot, layoutArtAncestors, layoutArtTree } from './artTreeLayout';
 import { layoutButterfly } from './butterflyLayout';
 import { layoutCircle } from './fanLayout';
 import { layoutAncestors, layoutDescendants, layoutFamily } from './treeLayout';
@@ -136,5 +137,32 @@ describe('«Дерево» от родоначальника', () => {
   it('у человека с детьми — от него самого', () => {
     const sergey = idOf(demo, 'Сергей');
     expect(artTreeRoot(demo, sergey)).toEqual({ root: sergey, depth: 0 });
+  });
+});
+
+describe('родословное «Дерево» (предки)', () => {
+  it('род отца слева, род матери справа', () => {
+    const alexey = idOf(demo, 'Алексей');
+    const t = layoutArtAncestors(demo, alexey, 7);
+    const node = (name: string) => t.nodes.find((n) => n.personId === idOf(demo, name))!;
+    expect(node('Алексей').gen).toBe(0);
+    expect(node('Сергей').x).toBeLessThan(0); // отец
+    expect(node('Гульнара').x).toBeGreaterThan(0); // мать
+    expect(node('Иван').x).toBeLessThan(0); // дед по отцу
+  });
+
+  it('неизвестные родители — пустые места «+», в печати их нет', () => {
+    const { tree, id } = addPerson(createTree('Т'), { sex: 'M', names: { given: 'Один' } });
+    const t = layoutArtAncestors(tree, id, 7);
+    expect(t.ghosts.map((g) => g.kind)).toEqual(['father', 'mother']);
+    expect(t.ghosts.every((g) => g.childId === id)).toBe(true);
+    expect(layoutArtAncestors(tree, id, 7, false).ghosts).toHaveLength(0);
+  });
+
+  it('не дальше заданного числа поколений', () => {
+    const artem = idOf(demo, 'Артём');
+    const t = layoutArtAncestors(demo, artem, 2);
+    expect(Math.max(...t.nodes.map((n) => n.gen))).toBe(2);
+    expect(t.nodes.some((n) => n.more)).toBe(true);
   });
 });

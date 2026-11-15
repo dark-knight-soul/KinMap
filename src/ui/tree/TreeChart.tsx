@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { artTreeRoot, layoutArtTree, type ArtTreeLayout } from '../../layout/artTreeLayout';
+import { artTreeRoot, layoutArtAncestors, layoutArtTree, type ArtTreeLayout } from '../../layout/artTreeLayout';
 import { layoutButterfly } from '../../layout/butterflyLayout';
 import { FAN_CENTER_R, layoutCircle, layoutFan, type FanSegment } from '../../layout/fanLayout';
 import { layoutAll, layoutAncestors, layoutDescendants, layoutFamily } from '../../layout/treeLayout';
@@ -37,8 +37,11 @@ export function TreeChart() {
 
   const horizontal = view.horizontal && ROTATABLE.includes(view.chart);
   const layout = useMemo(
-    () => (focus ? computeLayout(tree, view.chart, focus, view.up, view.down, horizontal) : null),
-    [tree, view.chart, focus, view.up, view.down, horizontal],
+    () =>
+      focus
+        ? computeLayout(tree, view.chart, focus, view.up, view.down, horizontal, { mode: view.artMode, up: view.artUp })
+        : null,
+    [tree, view.chart, focus, view.up, view.down, horizontal, view.artMode, view.artUp],
   );
 
   const { add, dialog } = useAddRelative();
@@ -81,7 +84,7 @@ export function TreeChart() {
           layout.kind === 'fan' ? (
             <FanContent tree={tree} fan={layout.fan} selectedId={selectedId} tints={tints} />
           ) : layout.kind === 'art' ? (
-            <ArtTreeContent tree={tree} layout={layout.art} vp={vp} selectedId={selectedId} focusId={focus} tints={tints} />
+            <ArtTreeContent tree={tree} layout={layout.art} vp={vp} selectedId={selectedId} focusId={focus} tints={tints} onQuickAdd={add} />
           ) : (
             <CardsContent tree={tree} chart={layout.chart} vp={vp} selectedId={selectedId} focusId={focus} onQuickAdd={add} tints={tints} />
           )
@@ -178,17 +181,36 @@ export type Computed =
   | { kind: 'fan'; fan: ReturnType<typeof layoutFan>; bounds: Bounds }
   | { kind: 'art'; art: ArtTreeLayout; bounds: Bounds };
 
-export function computeLayout(tree: TreeData, chart: ChartKind, focus: string, up: number, down: number, horizontal = false): Computed {
+/** Настройки «Дерева» для раскладки (печать — без пустых мест «+ отец / + мать») */
+export interface ArtOptions {
+  mode: 'ancestors' | 'descendants';
+  up: number;
+  print?: boolean;
+}
+
+export function computeLayout(
+  tree: TreeData,
+  chart: ChartKind,
+  focus: string,
+  up: number,
+  down: number,
+  horizontal = false,
+  art: ArtOptions = { mode: 'ancestors', up: 7 },
+): Computed {
   if (chart === 'fan' || chart === 'circle') {
     const fan = chart === 'fan' ? layoutFan(tree, focus, up) : layoutCircle(tree, focus, down);
     const r = Math.max(fan.radius, FAN_CENTER_R);
     return { kind: 'fan', fan, bounds: { minX: -r, minY: -r, maxX: r, maxY: fan.full ? r : FAN_CENTER_R } };
   }
   if (chart === 'tree') {
+    if (art.mode === 'ancestors') {
+      const anc = layoutArtAncestors(tree, focus, art.up, !art.print);
+      return { kind: 'art', art: anc, bounds: anc.bounds };
+    }
     // Нет детей — растим дерево от родоначальника, но так, чтобы сам человек был виден
     const { root, depth } = artTreeRoot(tree, focus);
-    const art = layoutArtTree(tree, root, Math.max(down, depth));
-    return { kind: 'art', art, bounds: art.bounds };
+    const desc = layoutArtTree(tree, root, Math.max(down, depth));
+    return { kind: 'art', art: desc, bounds: desc.bounds };
   }
   const layout =
     chart === 'all'

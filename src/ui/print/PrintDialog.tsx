@@ -43,8 +43,15 @@ export function PrintDialog({ onClose }: { onClose: () => void }) {
   const [printing, setPrinting] = useState(false);
 
   const computed = useMemo(
-    () => (focus ? computeLayout(tree, view.chart, focus, view.up, view.down, view.horizontal && ROTATABLE.includes(view.chart)) : null),
-    [tree, focus, view.chart, view.up, view.down, view.horizontal],
+    () =>
+      focus
+        ? computeLayout(tree, view.chart, focus, view.up, view.down, view.horizontal && ROTATABLE.includes(view.chart), {
+            mode: view.artMode,
+            up: view.artUp,
+            print: true,
+          })
+        : null,
+    [tree, focus, view.chart, view.up, view.down, view.horizontal, view.artMode, view.artUp],
   );
   if (!computed) return null;
   const size = { width: computed.bounds.maxX - computed.bounds.minX, height: computed.bounds.maxY - computed.bounds.minY };

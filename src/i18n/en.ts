@@ -300,6 +300,8 @@ export const en: EnDictionary = {
     circle: 'Circle',
     tree: 'Tree',
     all: 'Whole tree',
+    artAncestorsHint: 'Pedigree tree: father’s and mother’s ancestors',
+    artDescendantsHint: 'Descendant tree: children, grandchildren…',
     rotate: 'Rotate: ancestors left, descendants right',
     up: 'Generations up',
     down: 'down',
@@ -319,6 +321,8 @@ export const en: EnDictionary = {
     moreAbove: 'More ancestors — show',
     moreBelow: 'More descendants — show',
     back: '← Back to tree',
+    fatherSide: 'Father’s side',
+    motherSide: 'Mother’s side',
     center: 'Center chart',
   },
   photos: {

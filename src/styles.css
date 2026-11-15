@@ -1462,6 +1462,7 @@ kbd {
 
 /* Панель видов: подпись только у выбранного вида, остальные — значками */
 .chart-seg button:not(.active) .seg-label { display: none; }
+.art-mode button { display: inline-flex; align-items: center; gap: 4px; }
 .rotate-btn.active { color: var(--accent); background: var(--accent-soft); }
 
 /* «Дерево» — цвета общие для всех тем */
@@ -1690,3 +1691,13 @@ kbd {
   border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer;
 }
 .gen-chip:hover { border-color: var(--accent); }
+
+/* Родословное «Дерево»: подписи родов и пустые места для неизвестных родителей */
+.art-sides text { font-size: 17px; font-weight: 600; fill: var(--muted); paint-order: stroke; stroke: var(--canvas-bg); stroke-width: 4px; }
+.art-ghost { cursor: pointer; }
+.art-ghost-branch { stroke: var(--tree-bark); stroke-width: 2.5; stroke-dasharray: 6 6; opacity: 0.45; fill: none; }
+.art-ghost-disc { fill: var(--canvas-bg); stroke: var(--muted); stroke-width: 2; stroke-dasharray: 5 4; }
+.art-ghost-plus { font-size: 20px; font-weight: 600; fill: var(--muted); pointer-events: none; }
+.art-ghost-label { font-size: 12px; fill: var(--muted); pointer-events: none; }
+.art-ghost:hover .art-ghost-disc { stroke: var(--accent); stroke-dasharray: none; }
+.art-ghost:hover .art-ghost-plus, .art-ghost:hover .art-ghost-label { fill: var(--accent); }

@@ -296,6 +296,8 @@ export const uz: EnDictionary = {
     circle: 'Doira',
     tree: 'Daraxt',
     all: 'Butun shajara',
+    artAncestorsHint: 'Shajara: ota va ona tomonidan ajdodlar',
+    artDescendantsHint: 'Zurriyot daraxti: bolalar, nevaralar…',
     rotate: 'Burish: ajdodlar chapda, avlodlar o‘ngda',
     up: 'Yuqoriga avlodlar',
     down: 'pastga',
@@ -315,6 +317,8 @@ export const uz: EnDictionary = {
     moreAbove: 'Yana ajdodlar bor — ko‘rsatish',
     moreBelow: 'Yana avlodlar bor — ko‘rsatish',
     back: '← Shajaraga',
+    fatherSide: 'Ota tomoni',
+    motherSide: 'Ona tomoni',
     center: 'Sxema markaziga',
   },
   photos: {

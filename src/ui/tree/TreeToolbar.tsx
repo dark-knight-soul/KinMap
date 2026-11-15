@@ -53,8 +53,9 @@ const GENS = Array.from({ length: GEN_MAX - GEN_MIN + 1 }, (_, i) => GEN_MIN + i
 export function TreeToolbar() {
   const { t } = useTranslation();
   const view = useView();
+  const artAnc = view.chart === 'tree' && view.artMode === 'ancestors';
   const showUp = USES_UP.includes(view.chart);
-  const showDown = USES_DOWN.includes(view.chart);
+  const showDown = USES_DOWN.includes(view.chart) && !artAnc;
   const rotatable = ROTATABLE.includes(view.chart);
 
   return (
@@ -89,6 +90,35 @@ export function TreeToolbar() {
         >
           <RotateCw size={16} strokeWidth={1.75} />
         </button>
+      )}
+      {view.chart === 'tree' && (
+        <div className="segmented art-mode" role="group" aria-label={t('chart.tree')}>
+          {(['ancestors', 'descendants'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              className={view.artMode === m ? 'active' : ''}
+              aria-pressed={view.artMode === m}
+              onClick={() => setView({ artMode: m })}
+              title={t(m === 'ancestors' ? 'chart.artAncestorsHint' : 'chart.artDescendantsHint')}
+            >
+              {m === 'ancestors' ? <ChevronsUp size={15} strokeWidth={1.75} /> : <ChevronsDown size={15} strokeWidth={1.75} />}
+              <span>{t(m === 'ancestors' ? 'chart.ancestors' : 'chart.descendants')}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {artAnc && (
+        <label className="gen-control" title={t('chart.up')}>
+          <ChevronsUp size={16} strokeWidth={1.75} aria-hidden="true" />
+          <select value={view.artUp} aria-label={t('chart.up')} onChange={(e) => setView({ artUp: Number(e.target.value) })}>
+            {GENS.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </select>
+        </label>
       )}
       {showUp && (
         <label className="gen-control" title={t('chart.up')}>
