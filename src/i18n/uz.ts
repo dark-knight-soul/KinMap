@@ -729,6 +729,15 @@ export const uz: EnDictionary = {
     showAncestors: 'Ajdodlarni sxemada koʻrsatish',
     showDescendants: 'Zurriyotni sxemada koʻrsatish',
   },
+  show: {
+    title: 'Koʻrsatish',
+    patronymic: 'Otasining ismi',
+    surname: 'Familiya',
+    years: 'Yashagan yillari',
+    spouse: 'Yonida turmush oʻrtogʻi',
+    photo: 'Suratlar',
+    note: 'Daraxtda otasining ismi va yillar kattalashtirilganda koʻrinadi.',
+  },
   stats: {
     title: 'Oila statistikasi',
     empty: 'Shajarada hali hech kim yo‘q.',

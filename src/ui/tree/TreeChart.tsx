@@ -14,7 +14,7 @@ import { layoutAll, layoutAncestors, layoutDescendants, layoutFamily } from '../
 import { CARD_H, CARD_W, type Bounds, type CardBox, type ChartLayout } from '../../layout/types';
 import type { Person, TreeData } from '../../model/types';
 import { select, setFocus, useApp } from '../../state/store';
-import { ROTATABLE, useView, type ChartKind, type ColorMode } from '../../state/view';
+import { ROTATABLE, useView, type ChartKind, type ColorMode, type ShowOptions } from '../../state/view';
 import { avatarGeometry } from '../../file/images';
 import { computeIssues } from '../../model/checks';
 import { setHighlight, useUi } from '../../state/ui';
@@ -322,6 +322,7 @@ export function CardsContent({
   /** Цвета карточек (по линиям или фамилиям) */
   tints?: Map<string, string>;
 }) {
+  const { show } = useView();
   const highlight = useUi((s) => s.highlight);
   const pathIds = useMemo(() => (highlight && !print ? new Set(highlight.ids) : null), [highlight, print]);
   // Рисуем только то, что попадает в видимую область
@@ -374,7 +375,8 @@ export function CardsContent({
             selected={c.personId === selectedId}
             focus={c.personId === focusId && !c.duplicate}
             simple={simple}
-            photoUrl={bytes && photo ? urlFor(bytes, photo.mime) : undefined}
+            photoUrl={show.photo && bytes && photo ? urlFor(bytes, photo.mime) : undefined}
+            show={show}
             hasIssue={!print && issueIds.has(c.personId)}
             tint={tints?.get(c.personId)}
             path={pathIds ? (pathIds.has(c.personId) ? 'in' : 'out') : undefined}
@@ -399,6 +401,7 @@ const Card = memo(function Card({
   focus,
   simple,
   photoUrl,
+  show,
   hasIssue,
   tint,
   path,
@@ -409,6 +412,8 @@ const Card = memo(function Card({
   focus: boolean;
   simple: boolean;
   photoUrl?: string;
+  /** Что показывать: отчество, фамилию, годы */
+  show: ShowOptions;
   hasIssue: boolean;
   /** Цвет полоски и лёгкая заливка (режимы «по линиям» / «по фамилиям») */
   tint?: string;
@@ -417,8 +422,10 @@ const Card = memo(function Card({
 }) {
   const { t } = useTranslation();
   const n = shownNames(person);
-  const line1 = [n.given, n.patronymic].filter(Boolean).join(' ') || t('common.unnamed');
-  const line2 = n.surname ?? '';
+  const line1 = [n.given, show.patronymic && n.patronymic].filter(Boolean).join(' ') || t('common.unnamed');
+  const line2 = show.surname ? (n.surname ?? '') : '';
+  // Годы — третьей строкой, а без фамилии — второй
+  const yearsY = line2 ? 61 : 42;
   const years = lifespan(person);
   const cls = ['card', `card-${person.sex}`, selected && 'selected', focus && 'focus', box.duplicate && 'duplicate', path === 'in' && 'in-path', path === 'out' && 'dimmed']
     .filter(Boolean)
@@ -467,12 +474,16 @@ const Card = memo(function Card({
           <text x={textX} y={24} className="card-name">
             {cut(line1, maxChars)}
           </text>
-          <text x={textX} y={42} className="card-surname">
-            {cut(line2, maxChars)}
-          </text>
-          <text x={textX} y={61} className="card-years">
-            {box.duplicate ? `↪ ${years}` : years}
-          </text>
+          {line2 && (
+            <text x={textX} y={42} className="card-surname">
+              {cut(line2, maxChars)}
+            </text>
+          )}
+          {(show.years || box.duplicate) && (
+            <text x={textX} y={yearsY} className="card-years">
+              {box.duplicate ? `↪ ${show.years ? years : ''}` : years}
+            </text>
+          )}
         </>
       )}
       {hasIssue && (

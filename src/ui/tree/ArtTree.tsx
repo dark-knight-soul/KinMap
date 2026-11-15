@@ -17,6 +17,7 @@ import { avatarGeometry } from '../../file/images';
 import type { Person, TreeData } from '../../model/types';
 import { select, setFocus, useApp } from '../../state/store';
 import { useUi } from '../../state/ui';
+import { useView } from '../../state/view';
 import { lifespan, shownNames } from '../format';
 import { urlFor } from '../media';
 import { contextMenuHandlers } from './cardEvents';
@@ -111,6 +112,7 @@ export function ArtTreeContent({
   print?: boolean;
 }) {
   const { t } = useTranslation();
+  const { show } = useView();
   const media = useApp((s) => s.session?.media ?? NO_MEDIA);
   const highlight = useUi((s) => s.highlight);
   const pathIds = useMemo(() => (highlight && !print ? new Set(highlight.ids) : null), [highlight, print]);
@@ -145,24 +147,26 @@ export function ArtTreeContent({
         founders: layout.grove?.founders,
         // В роще супруги — отдельные кружки рядом: их подписи можно ставить «ступенькой»
         stagger: !!layout.grove,
+        years: show.years,
         text: (n) => {
           const p = tree.people[n.personId];
           const names = p ? shownNames(p) : undefined;
           const name = cut(names?.given || t('common.unnamed'), layout.grove ? 12 : 16);
-          const surname = names?.surname ? cut(names.surname, layout.grove ? 14 : 18) : undefined;
+          const surname = show.surname && names?.surname ? cut(names.surname, layout.grove ? 14 : 18) : undefined;
+          const patronymic = show.patronymic && names?.patronymic ? cut(names.patronymic, layout.grove ? 14 : 18) : undefined;
           // Жена или муж маленьким кружком рядом — отдельной строкой: «∞ Шарофат Набиева»
-          const spouseNames = simple
+          const spouseNames = simple || !show.spouse
             ? []
             : n.spouses
                 .map((id) => tree.people[id] && givenSurname(tree.people[id]!))
                 .filter((x): x is string => !!x);
-          return { name, surname, spouse: spouseNames.length ? cut(`∞ ${spouseNames.join(', ')}`, 26) : undefined };
+          return { name, patronymic, surname, spouse: spouseNames.length ? cut(`∞ ${spouseNames.join(', ')}`, 26) : undefined };
         },
       }),
-    [nodes, under, vp.scale, print, focusId, selectedId, layout.grove, tree, simple, t],
+    [nodes, under, vp.scale, print, focusId, selectedId, layout.grove, tree, simple, t, show],
   );
   const photoUrl = (p: Person | undefined) => {
-    const ph = p?.photos?.[0];
+    const ph = show.photo ? p?.photos?.[0] : undefined;
     const bytes = ph ? media[ph.id] : undefined;
     return ph && bytes ? urlFor(bytes, ph.mime) : undefined;
   };
@@ -182,7 +186,7 @@ export function ArtTreeContent({
         path={pathIds ? (pathIds.has(p.id) ? 'in' : 'out') : undefined}
         label={labels.get(n.key)}
         moreAbove={!n.under && (layout.mode === 'ancestors' || layout.mode === 'full')}
-        spouses={simple ? [] : n.spouses.map((id) => ({ person: tree.people[id]!, photo: photoUrl(tree.people[id]) }))}
+        spouses={simple || !show.spouse ? [] : n.spouses.map((id) => ({ person: tree.people[id]!, photo: photoUrl(tree.people[id]) }))}
       />
     );
   };
@@ -366,6 +370,8 @@ interface LabelSpec {
   name: string;
   /** Фамилия — второй строкой */
   surname?: string;
+  /** Отчество — только при крупном масштабе */
+  patronymic?: string;
   /** Вторая строка — супруг(а): «∞ Шарофат» */
   spouse?: string;
   /** Сдвиг подписи вниз («ступенька», чтобы не налезть на подпись соседа) */
@@ -390,7 +396,9 @@ function placeLabels(
     selectedId?: string;
     founders?: string[];
     stagger: boolean;
-    text: (n: ArtNode) => { name: string; surname?: string; spouse?: string };
+    /** Показывать годы жизни (при крупном масштабе) */
+    years: boolean;
+    text: (n: ArtNode) => { name: string; patronymic?: string; surname?: string; spouse?: string };
   },
 ): Map<string, LabelSpec> {
   const out = new Map<string, LabelSpec>();
@@ -403,12 +411,15 @@ function placeLabels(
   const boxes: [number, number, number, number][] = [];
   for (const n of sorted) {
     if (level === 'key' && important(n) > 2) continue;
-    const years = level === 'full';
-    const { name, surname, spouse } = opts.text(n);
+    const years = level === 'full' && opts.years;
+    const { name, surname, spouse, patronymic: pat } = opts.text(n);
     const withSpouse = level !== 'key' ? spouse : undefined;
+    // Отчество — только когда схема крупная, иначе подписи слишком высокие
+    const patronymic = level === 'full' ? pat : undefined;
     // Ширина и высота подложки — по длине самой длинной строки (как в ArtPerson)
-    const w = Math.max(name.length, (surname?.length ?? 0) * 0.85, (withSpouse?.length ?? 0) * 0.82) * font * 0.6 + 18;
-    const h = labelHeight(font, 1 + (surname ? 1 : 0) + (withSpouse ? 1 : 0) + (years ? 1 : 0));
+    const w =
+      Math.max(name.length, (patronymic?.length ?? 0) * 0.8, (surname?.length ?? 0) * 0.85, (withSpouse?.length ?? 0) * 0.82) * font * 0.6 + 18;
+    const h = labelHeight(font, 1 + (patronymic ? 1 : 0) + (surname ? 1 : 0) + (withSpouse ? 1 : 0) + (years ? 1 : 0));
     // Сначала прямо под кружком, в роще — ещё и ступенькой ниже (если рядом уже стоит подпись супруга)
     const tries = opts.stagger ? [0, h + 4, 2 * (h + 4)] : [0];
     let dy: number | undefined;
@@ -421,7 +432,7 @@ function placeLabels(
       }
     }
     if (dy === undefined) continue;
-    out.set(n.key, { font, years, name, surname, spouse: withSpouse, dy });
+    out.set(n.key, { font, years, name, patronymic, surname, spouse: withSpouse, dy });
   }
   return out;
 }
@@ -555,6 +566,7 @@ const ArtPerson = memo(function ArtPerson({
   const lines: { text: string; cls: string; k: number }[] = spec
     ? [
         { text: spec.name, cls: 'art-name', k: 1 },
+        ...(spec.patronymic ? [{ text: spec.patronymic, cls: 'art-patronymic', k: 0.8 }] : []),
         ...(spec.surname ? [{ text: spec.surname, cls: 'art-surname', k: 0.85 }] : []),
         ...(spec.spouse ? [{ text: spec.spouse, cls: 'art-spouse-name', k: 0.8 }] : []),
         ...(showYears ? [{ text: years, cls: 'art-years', k: 0.8 }] : []),

@@ -30,9 +30,23 @@ export interface ViewState {
   artUp: number;
   /** «Потомки»: от кого растить — запоминается для конкретного человека в центре */
   artDescRoot?: { focus: string; root: string };
+  /** Что показывать в подписях */
+  show: ShowOptions;
 }
 
 export type ArtViewMode = 'ancestors' | 'descendants' | 'full' | 'clan';
+
+/** Что показывать в подписях людей на схеме (карточки и «Дерево») */
+export interface ShowOptions {
+  patronymic: boolean;
+  surname: boolean;
+  years: boolean;
+  /** Супруг(а) маленьким кружком рядом и его имя в подписи */
+  spouse: boolean;
+  photo: boolean;
+}
+export const SHOW_KEYS: (keyof ShowOptions)[] = ['patronymic', 'surname', 'years', 'spouse', 'photo'];
+const SHOW_DEFAULTS: ShowOptions = { patronymic: true, surname: true, years: true, spouse: true, photo: true };
 export const ART_MODES: ArtViewMode[] = ['ancestors', 'descendants', 'full', 'clan'];
 
 export const GEN_MIN = 1;
@@ -48,6 +62,7 @@ const DEFAULTS: ViewState = {
   history: true,
   artMode: 'ancestors',
   artUp: 7,
+  show: SHOW_DEFAULTS,
 };
 
 function load(): ViewState {
@@ -70,6 +85,9 @@ function load(): ViewState {
         raw.artDescRoot && typeof raw.artDescRoot.focus === 'string' && typeof raw.artDescRoot.root === 'string'
           ? { focus: raw.artDescRoot.focus, root: raw.artDescRoot.root }
           : undefined,
+      show: Object.fromEntries(
+        SHOW_KEYS.map((k) => [k, typeof raw.show?.[k] === 'boolean' ? raw.show[k] : SHOW_DEFAULTS[k]]),
+      ) as unknown as ShowOptions,
     };
   } catch {
     return DEFAULTS;

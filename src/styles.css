@@ -1738,3 +1738,19 @@ kbd {
 
 /* Фамилия — второй строкой подписи */
 .art-surname { fill: var(--text); font-weight: 500; pointer-events: none; paint-order: stroke; stroke: var(--canvas-bg); stroke-width: 3px; }
+
+.art-patronymic { fill: var(--muted); pointer-events: none; paint-order: stroke; stroke: var(--canvas-bg); stroke-width: 3px; }
+
+/* Выбор вида списком и меню «Показывать» */
+.view-picker select { font-weight: 600; }
+.show-menu { position: relative; }
+.show-btn { cursor: pointer; border: none; font: inherit; color: inherit; }
+.show-off { font-size: 0.75rem; color: var(--muted); }
+.show-pop {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; min-width: 220px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.14); padding: 8px; display: flex; flex-direction: column; gap: 2px;
+}
+.show-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+.show-item:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.show-note { margin: 4px 8px 2px; }

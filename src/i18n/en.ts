@@ -733,6 +733,15 @@ export const en: EnDictionary = {
     showAncestors: 'Show ancestors on the chart',
     showDescendants: 'Show descendants on the chart',
   },
+  show: {
+    title: 'Show',
+    patronymic: 'Patronymic',
+    surname: 'Surname',
+    years: 'Years of life',
+    spouse: 'Spouse alongside',
+    photo: 'Photos',
+    note: 'On the art tree, patronymic and years appear when zoomed in.',
+  },
   stats: {
     title: 'Family statistics',
     empty: 'The tree is empty so far.',

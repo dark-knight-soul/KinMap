@@ -3,6 +3,8 @@ import {
   ArrowUpFromLine,
   ChevronsDown,
   ChevronsUp,
+  ChevronDown,
+  Eye,
   ChevronsUpDown,
   Fan,
   Network,
@@ -14,7 +16,7 @@ import {
   Users,
   type LucideProps,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { descendantRoots, type DescendantRoot } from '../../model/generations';
 import { matchesQuery, sortKey } from '../../model/queries';
@@ -22,6 +24,7 @@ import { setFocus, useApp } from '../../state/store';
 import {
   ART_MODES,
   CHART_KINDS,
+  SHOW_KEYS,
   GEN_MAX,
   GEN_MIN,
   ROTATABLE,
@@ -97,25 +100,8 @@ export function TreeToolbar() {
 
   return (
     <div className="tree-toolbar">
-      <div className="segmented chart-seg" role="tablist" aria-label={t('chart.kind')}>
-        {CHARTS.map((c) => {
-          const Icon = CHART_ICON[c];
-          return (
-            <button
-              key={c}
-              type="button"
-              role="tab"
-              aria-selected={view.chart === c}
-              className={view.chart === c ? 'active' : ''}
-              onClick={() => setView({ chart: c })}
-              title={t(`chart.${c}`)}
-            >
-              <Icon size={16} strokeWidth={1.75} />
-              <span className="seg-label">{t(`chart.${c}`)}</span>
-            </button>
-          );
-        })}
-      </div>
+      <ViewPicker />
+      <ShowMenu />
       {rotatable && (
         <button
           type="button"
@@ -127,26 +113,6 @@ export function TreeToolbar() {
         >
           <RotateCw size={16} strokeWidth={1.75} />
         </button>
-      )}
-      {view.chart === 'tree' && (
-        <div className="segmented art-mode" role="group" aria-label={t('chart.tree')}>
-          {ART_MODES.map((m) => {
-            const Icon = ART_ICON[m];
-            return (
-              <button
-                key={m}
-                type="button"
-                className={view.artMode === m ? 'active' : ''}
-                aria-pressed={view.artMode === m}
-                onClick={() => setView({ artMode: m })}
-                title={t(ART_HINT[m])}
-              >
-                <Icon size={15} strokeWidth={1.75} />
-                <span>{t(ART_LABEL[m])}</span>
-              </button>
-            );
-          })}
-        </div>
       )}
       {isArt && view.artMode === 'descendants' && <DescRootPicker />}
       {artAnc && (
@@ -196,6 +162,84 @@ export function TreeToolbar() {
         </select>
       </label>
       <PersonSearch />
+    </div>
+  );
+}
+
+/** Вид схемы — одним выпадающим списком; режимы «Дерева» — отдельной группой */
+function ViewPicker() {
+  const { t } = useTranslation();
+  const view = useView();
+  const value = view.chart === 'tree' ? `tree:${view.artMode}` : view.chart;
+  const Icon = view.chart === 'tree' ? ART_ICON[view.artMode] : CHART_ICON[view.chart];
+  const onChange = (v: string) => {
+    if (v.startsWith('tree:')) setView({ chart: 'tree', artMode: v.slice(5) as ArtViewMode });
+    else setView({ chart: v as ChartKind });
+  };
+  return (
+    <label className="gen-control view-picker" title={t('chart.kind')}>
+      <Icon size={16} strokeWidth={1.75} aria-hidden="true" />
+      <select value={value} aria-label={t('chart.kind')} onChange={(e) => onChange(e.target.value)}>
+        <optgroup label={t('chart.kind')}>
+          {CHARTS.filter((c) => c !== 'tree').map((c) => (
+            <option key={c} value={c}>
+              {t(`chart.${c}`)}
+            </option>
+          ))}
+        </optgroup>
+        <optgroup label={t('chart.tree')}>
+          {ART_MODES.map((m) => (
+            <option key={m} value={`tree:${m}`} title={t(ART_HINT[m])}>
+              {t('chart.tree')}: {t(ART_LABEL[m]).toLocaleLowerCase()}
+            </option>
+          ))}
+        </optgroup>
+      </select>
+    </label>
+  );
+}
+
+/** «Показывать»: галочки — что выводить в подписях людей (отчество, фамилия, годы, супруг(а), фото) */
+function ShowMenu() {
+  const { t } = useTranslation();
+  const view = useView();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+  const off = SHOW_KEYS.filter((k) => !view.show[k]).length;
+  return (
+    <div className="show-menu" ref={ref}>
+      <button type="button" className="gen-control show-btn" aria-expanded={open} aria-haspopup="true" onClick={() => setOpen((o) => !o)}>
+        <Eye size={16} strokeWidth={1.75} aria-hidden="true" />
+        <span>{t('show.title')}</span>
+        {off > 0 && <span className="show-off">−{off}</span>}
+        <ChevronDown size={14} strokeWidth={1.75} aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="show-pop" role="group" aria-label={t('show.title')}>
+          {SHOW_KEYS.map((k) => (
+            <label key={k} className="show-item">
+              <input type="checkbox" checked={view.show[k]} onChange={(e) => setView({ show: { ...view.show, [k]: e.target.checked } })} />
+              <span>{t(`show.${k}`)}</span>
+            </label>
+          ))}
+          <p className="muted small show-note">{t('show.note')}</p>
+        </div>
+      )}
     </div>
   );
 }
