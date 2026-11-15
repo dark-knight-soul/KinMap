@@ -100,6 +100,8 @@ interface TNode {
   more: boolean;
   /** Пустое место для неизвестного родителя */
   ghost?: 'father' | 'mother';
+  /** Родословное дерево: чья это сторона у родителей человека в центре */
+  side?: 'father' | 'mother';
 }
 
 /**
@@ -226,10 +228,14 @@ export function layoutArtAncestors(tree: TreeData, focusId: PersonId, maxGen: nu
       return node;
     }
     const slot = (pid: PersonId | undefined, kind: 'father' | 'mother'): TNode | null => {
-      if (pid) return build(pid, gen + 1);
-      if (!ghosts) return null;
-      depth = Math.max(depth, gen + 1);
-      return { id: '', children: [], weight: GHOST_WEIGHT, duplicate: false, more: false, ghost: kind };
+      const n: TNode | null = pid
+        ? build(pid, gen + 1)
+        : ghosts
+          ? { id: '', children: [], weight: GHOST_WEIGHT, duplicate: false, more: false, ghost: kind }
+          : null;
+      if (!pid && n) depth = Math.max(depth, gen + 1);
+      if (n && gen === 0) n.side = kind;
+      return n;
     };
     // Порядок важен: первый ребёнок узла уходит влево — туда идёт род отца
     node.children = [slot(father, 'father'), slot(mother, 'mother')].filter((x): x is TNode => !!x);
@@ -238,7 +244,7 @@ export function layoutArtAncestors(tree: TreeData, focusId: PersonId, maxGen: nu
   };
   const root = build(focusId, 0);
   // Супруг(а) — только у самого человека: у предков второй супруг и так стоит рядом, на соседней ветке
-  return radial(tree, 'ancestors', root, depth, (gen) => gen === 0);
+  return radial(tree, 'ancestors', root, depth, (gen) => gen === 0, true);
 }
 
 /** Отец и мать для родословного дерева: из родной семьи (иначе — из первой) */
@@ -264,10 +270,23 @@ function emptyLayout(rootId: PersonId, mode: ArtMode): ArtTreeLayout {
 }
 
 /** Расстановка по полукругу: у каждой ветви свой сектор, пропорциональный её весу */
-function radial(tree: TreeData, mode: ArtMode, root: TNode, depth: number, withSpouses: (gen: number) => boolean): ArtTreeLayout {
-  const span = Math.PI - 2 * PAD;
+function radial(
+  tree: TreeData,
+  mode: ArtMode,
+  root: TNode,
+  depth: number,
+  withSpouses: (gen: number) => boolean,
+  /** Родословное: крона пополам — слева род отца, справа род матери, сколько бы людей ни было известно */
+  halves = false,
+): ArtTreeLayout {
+  const fullSpan = Math.PI - 2 * PAD;
+  // Мало людей — крона уже, ветви идут вверх, а не в стороны («крестом»)
+  const span = halves ? fullSpan : Math.min(fullSpan, 0.5 + 0.33 * root.weight);
+  const half = (side: 'father' | 'mother') => root.children.filter((c) => c.side === side).reduce((s, c) => s + c.weight, 0);
+  // При делении пополам место считаем по более «тяжёлой» половине
+  const weight = halves ? 2 * Math.max(half('father'), half('mother'), 1) : root.weight;
   // Шаг между ярусами: чтобы на внешнем ярусе «листьям» хватало места
-  const outerR = Math.max(MIN_STEP * Math.max(1, depth), (root.weight * MIN_ARC) / (span * WIDEN));
+  const outerR = Math.max(MIN_STEP * Math.max(1, depth), (weight * MIN_ARC) / (span * WIDEN));
   const step = depth ? outerR / depth : MIN_STEP;
 
   const spousesOf = (id: PersonId) =>
@@ -302,6 +321,15 @@ function radial(tree: TreeData, mode: ArtMode, root: TNode, depth: number, withS
       more: n.more || undefined,
       weight: n.weight,
     });
+    if (gen === 0 && halves) {
+      // Род отца — левая половина кроны, род матери — правая
+      const mid = (a0 + a1) / 2;
+      for (const c of n.children) {
+        if (c.side === 'mother') place(c, 1, mid, a1, key);
+        else place(c, 1, a0, mid, key);
+      }
+      return;
+    }
     let a = a0;
     for (const c of n.children) {
       const w = ((a1 - a0) * c.weight) / n.weight;
@@ -309,7 +337,7 @@ function radial(tree: TreeData, mode: ArtMode, root: TNode, depth: number, withS
       a += w;
     }
   };
-  place(root, 0, -Math.PI + PAD, -PAD);
+  place(root, 0, -Math.PI / 2 - span / 2, -Math.PI / 2 + span / 2);
 
   // Чей родитель пустое место — по ключу родительского узла
   const byKey = new Map(nodes.map((n) => [n.key, n]));

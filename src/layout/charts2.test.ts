@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createBigTree, createDemoTree } from '../model/demo';
-import { addPerson, createTree } from '../model/ops';
+import { addPerson, createTree, linkParent } from '../model/ops';
 import type { TreeData } from '../model/types';
 import { ROOTS_ANCHOR, ROOTS_TOP, artTreeRoot, layoutArtAncestors, layoutArtClan, layoutArtFull, layoutArtTree } from './artTreeLayout';
 import { layoutButterfly } from './butterflyLayout';
@@ -194,5 +194,34 @@ describe('«Дерево»: полный и весь род', () => {
     const ivan = t.nodes.find((n) => n.personId === idOf(demo, 'Иван'))!;
     const elena = idOf(demo, 'Елена');
     expect(ivan.spouseParents?.[elena]?.map((id) => demo.people[id]!.names.given).sort()).toEqual(['Григорий', 'Мария']);
+  });
+});
+
+describe('родословное «Дерево»: стороны не смешиваются', () => {
+  it('даже если по матери известно гораздо больше предков, они остаются справа', () => {
+    let t = createTree('Т');
+    const add = (sex: 'M' | 'F', given: string) => {
+      const r = addPerson(t, { sex, names: { given } });
+      t = r.tree;
+      return r.id;
+    };
+    const me = add('M', 'Я');
+    const father = add('M', 'Отец');
+    const mother = add('F', 'Мать');
+    t = linkParent(t, me, father).tree;
+    t = linkParent(t, me, mother).tree;
+    // По матери — три поколения, по отцу — никого
+    let cur = mother;
+    for (let i = 0; i < 3; i++) {
+      const f = add('M', `Дед${i}`);
+      const m = add('F', `Бабушка${i}`);
+      t = linkParent(t, cur, f).tree;
+      t = linkParent(t, cur, m).tree;
+      cur = f;
+    }
+    const l = layoutArtAncestors(t, me, 7, false);
+    const motherSide = l.nodes.filter((n) => n.gen > 0 && t.people[n.personId]!.names.given !== 'Отец');
+    expect(l.nodes.find((n) => n.personId === father)!.x).toBeLessThan(0);
+    for (const n of motherSide) expect(n.x, t.people[n.personId]!.names.given).toBeGreaterThan(0);
   });
 });

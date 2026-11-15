@@ -26,7 +26,7 @@ import type { Viewport } from './PanZoom';
 
 const SPOUSE_R = 17;
 /** Родители супруга из другой семьи (режим «Весь род») — совсем маленькие кружки */
-const IN_LAW_R = 11;
+const IN_LAW_R = 12;
 const NO_MEDIA: MediaStore = {};
 /** Больше стольких людей — без декоративных листьев (ради скорости) */
 const LEAVES_LIMIT = 1500;
@@ -379,8 +379,9 @@ const ArtPerson = memo(function ArtPerson({
             <title>{givenSurname(s.person)}</title>
             {/* Родители супруга, пришедшего из другой семьи: два кружка над ним */}
             {s.parents.map((pp, j) => {
-              const px = (j - (s.parents.length - 1) / 2) * (IN_LAW_R * 2 + 6);
-              const py = -SPOUSE_R - 24;
+              // Чуть наружу (в сторону супруга), чтобы не ложиться на ветви к детям
+              const px = side * (SPOUSE_R + 2) + (j - (s.parents.length - 1) / 2) * (IN_LAW_R * 2 + 5);
+              const py = -SPOUSE_R - 22;
               return (
                 <g
                   key={pp.id}
@@ -392,7 +393,7 @@ const ArtPerson = memo(function ArtPerson({
                   <title>{`${givenSurname(pp)} — ${t(pp.sex === 'F' ? 'relations.mother' : 'relations.father')}: ${givenSurname(s.person)}`}</title>
                   <path d={`M ${px} ${py + IN_LAW_R} L 0 ${-SPOUSE_R}`} className="art-inlaw-line" />
                   <circle cx={px} cy={py} r={IN_LAW_R} className="art-disc" />
-                  <text className="art-initials" x={px} y={py + 3.5} textAnchor="middle" fontSize={8.5}>
+                  <text className="art-initials" x={px} y={py + 3.5} textAnchor="middle" fontSize={9}>
                     {initials(pp)}
                   </text>
                 </g>
