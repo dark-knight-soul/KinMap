@@ -293,6 +293,7 @@ export const en: EnDictionary = {
     butterfly: 'Butterfly',
     circle: 'Circle',
     tree: 'Tree',
+    all: 'Whole tree',
     rotate: 'Rotate: ancestors left, descendants right',
     up: 'Generations up',
     down: 'down',

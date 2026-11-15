@@ -4,6 +4,7 @@ import {
   ChevronsDown,
   ChevronsUp,
   Fan,
+  Network,
   Orbit,
   Palette,
   RotateCw,
@@ -40,6 +41,7 @@ const CHART_ICON: Record<ChartKind, (p: LucideProps) => React.ReactNode> = {
   fan: Fan,
   circle: Orbit,
   tree: TreeDeciduous,
+  all: Network,
 };
 /** Каким видам нужны поколения вверх / вниз */
 const USES_UP: ChartKind[] = ['family', 'ancestors', 'butterfly', 'fan'];

@@ -289,6 +289,7 @@ export const uz: EnDictionary = {
     butterfly: 'Kapalak',
     circle: 'Doira',
     tree: 'Daraxt',
+    all: 'Butun shajara',
     rotate: 'Burish: ajdodlar chapda, avlodlar o‘ngda',
     up: 'Yuqoriga avlodlar',
     down: 'pastga',

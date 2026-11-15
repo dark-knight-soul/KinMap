@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { layoutArtTree, type ArtTreeLayout } from '../../layout/artTreeLayout';
 import { layoutButterfly } from '../../layout/butterflyLayout';
 import { FAN_CENTER_R, layoutCircle, layoutFan, type FanSegment } from '../../layout/fanLayout';
-import { layoutAncestors, layoutDescendants, layoutFamily } from '../../layout/treeLayout';
+import { layoutAll, layoutAncestors, layoutDescendants, layoutFamily } from '../../layout/treeLayout';
 import { CARD_H, CARD_W, type Bounds, type CardBox, type ChartLayout } from '../../layout/types';
 import type { Person, TreeData } from '../../model/types';
 import { select, setFocus, useApp } from '../../state/store';
@@ -188,7 +188,9 @@ export function computeLayout(tree: TreeData, chart: ChartKind, focus: string, u
     return { kind: 'art', art, bounds: art.bounds };
   }
   const layout =
-    chart === 'butterfly'
+    chart === 'all'
+      ? layoutAll(tree, focus, horizontal)
+      : chart === 'butterfly'
       ? layoutButterfly(tree, focus, up, down)
       : chart === 'ancestors'
         ? layoutAncestors(tree, focus, up, horizontal)

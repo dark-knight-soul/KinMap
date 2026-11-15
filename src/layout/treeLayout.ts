@@ -1,5 +1,5 @@
 import { approxYear } from '../model/dates';
-import { parentFamiliesOf, siblingsOf, unionsOf } from '../model/queries';
+import { childrenOf, parentFamiliesOf, siblingsOf, spousesOf, unionsOf } from '../model/queries';
 import type { ChildRelation, Family, PersonId, TreeData } from '../model/types';
 import {
   CARD_H,
@@ -23,7 +23,8 @@ import {
 // Виды:
 //   descendants — потомки человека вниз (с супругами);
 //   ancestors   — предки вверх;
-//   family      — «песочные часы»: предки сверху, потомки снизу, братья и сёстры рядом.
+//   family      — «песочные часы»: предки сверху, потомки снизу, братья и сёстры рядом;
+//   all         — всё древо: потомки каждого родоначальника, ветки рядом.
 //
 // Горизонтальный вариант (предки слева, потомки справа) считается той же раскладкой
 // в «повёрнутых» размерах: вдоль полосы карточка занимает свою высоту, поколение — ширину.
@@ -134,7 +135,23 @@ interface DNode {
 /** Союзы в порядке слева направо (так же расставляются их дети) */
 const orderedUnions = (n: DNode) => [...[...n.left].reverse(), ...n.single, ...n.right];
 
-function buildDesc(tree: TreeData, id: PersonId, depth: number, maxDepth: number, expanded: Set<PersonId>): DNode {
+/**
+ * Общий учёт для «Всего древа»: какие союзы уже нарисованы (их дети не повторяются)
+ * и кто уже стоит на схеме супругом.
+ */
+interface DescShared {
+  doneFamilies: Set<string>;
+  spouses: Set<PersonId>;
+}
+
+function buildDesc(
+  tree: TreeData,
+  id: PersonId,
+  depth: number,
+  maxDepth: number,
+  expanded: Set<PersonId>,
+  shared?: DescShared,
+): DNode {
   const duplicate = expanded.has(id);
   expanded.add(id);
   const node: DNode = { id, duplicate, moreBelow: false, left: [], right: [], single: [], unitWidth: D.w, width: D.w };
@@ -143,13 +160,18 @@ function buildDesc(tree: TreeData, id: PersonId, depth: number, maxDepth: number
   const sort = byBirth(tree);
   let spouseIndex = 0;
   for (const family of unionsOf(tree, id)) {
+    if (shared) {
+      if (shared.doneFamilies.has(family.id)) continue;
+      shared.doneFamilies.add(family.id);
+    }
     const spouseId = family.partners.find((p) => p !== id);
+    if (shared && spouseId) shared.spouses.add(spouseId);
     const children: DChild[] = [];
     if (depth < maxDepth) {
       const ids = family.children.map((c) => c.id).filter((c) => tree.people[c]);
       for (const cid of [...ids].sort(sort)) {
         const relation = family.children.find((c) => c.id === cid)!.relation;
-        children.push({ node: buildDesc(tree, cid, depth + 1, maxDepth, expanded), relation });
+        children.push({ node: buildDesc(tree, cid, depth + 1, maxDepth, expanded, shared), relation });
       }
     } else if (family.children.length) {
       node.moreBelow = true;
@@ -160,6 +182,9 @@ function buildDesc(tree: TreeData, id: PersonId, depth: number, maxDepth: number
     else if (spouseIndex++ % 2 === 0) node.right.push(union);
     else node.left.push(union);
   }
+
+  // Все союзы человека уже нарисованы там, где он стоит супругом, — здесь он только «ссылка»
+  if (shared?.spouses.has(id) && !node.left.length && !node.right.length && !node.single.length) node.duplicate = true;
 
   const spouses = node.left.length + node.right.length;
   node.unitWidth = D.w + spouses * SPOUSE_STEP_();
@@ -439,5 +464,109 @@ function* collectIds(n: DNode): Generator<PersonId> {
   for (const u of [...n.left, ...n.right, ...n.single]) {
     if (u.spouseId) yield u.spouseId;
     for (const c of u.children) yield* collectIds(c.node);
+  }
+}
+
+// ─── Всё древо ──────────────────────────────────────────────────────────────
+
+/** Сколько поколений вниз показывать во «Всём древе» — по сути без ограничения */
+const ALL_DEPTH = 1000;
+
+export function layoutAll(tree: TreeData, focusId: PersonId, horizontal = false): ChartLayout {
+  return withDims(horizontal, () => allRaw(tree, focusId));
+}
+
+/**
+ * Все люди древа на одной схеме. У каждого родоначальника (человека без записанных родителей)
+ * своя ветка потомков; ветки стоят рядом, каждая — на строке своего поколения.
+ * Первой идёт отцовская линия выбранного человека, дальше — ветки в порядке родства с ней.
+ * Человек, уже нарисованный в другой ветке, показывается пунктирной карточкой-«ссылкой».
+ */
+function allRaw(tree: TreeData, focusId: PersonId): ChartLayout {
+  const b = new Builder();
+  const people = Object.keys(tree.people);
+  if (!people.length) return b.result();
+
+  const hasParents = (id: PersonId) => parentFamiliesOf(tree, id).some((f) => f.partners.some((p) => tree.people[p]));
+
+  // Ствол: от выбранного человека вверх по отцовской линии до самого старшего предка
+  let trunk = tree.people[focusId] ? focusId : people[0]!;
+  const climbed = new Set<PersonId>([trunk]);
+  for (;;) {
+    const pf = mainParentFamily(tree, trunk);
+    const parents = sortParents(tree, (pf?.family.partners ?? []).filter((p) => tree.people[p]));
+    const next = parents.find((p) => !climbed.has(p));
+    if (!next) break;
+    climbed.add(next);
+    trunk = next;
+  }
+
+  // Обход родства (родители, дети, супруги) — порядок веток и номер поколения у каждого
+  const gen = new Map<PersonId, number>();
+  const order: PersonId[] = [];
+  const sort = byBirth(tree);
+  const walk = (start: PersonId) => {
+    if (gen.has(start)) return;
+    gen.set(start, 0);
+    const queue = [start];
+    while (queue.length) {
+      const id = queue.shift()!;
+      order.push(id);
+      const g = gen.get(id)!;
+      const next: [PersonId, number][] = [
+        ...parentFamiliesOf(tree, id).flatMap((f) => f.partners.map((p) => [p, g - 1] as [PersonId, number])),
+        ...spousesOf(tree, id).map((s) => [s.person.id, g] as [PersonId, number]),
+        ...childrenOf(tree, id).map((c) => [c.person.id, g + 1] as [PersonId, number]),
+      ];
+      for (const [n, ng] of next) {
+        if (!tree.people[n] || gen.has(n)) continue;
+        gen.set(n, ng);
+        queue.push(n);
+      }
+    }
+  };
+  walk(trunk);
+  // Люди, не связанные со стволом (отдельные семьи в том же файле)
+  for (const id of [...people].sort(sort)) walk(id);
+
+  // Самое старшее поколение — верхняя строка схемы
+  const minGen = Math.min(...gen.values());
+
+  const expanded = new Set<PersonId>();
+  const shared: DescShared = { doneFamilies: new Set(), spouses: new Set() };
+  let cursor = 0;
+  const placeBranch = (root: PersonId) => {
+    const node = buildDesc(tree, root, 0, ALL_DEPTH, expanded, shared);
+    // Родоначальник уже стоит супругом в другой ветке и своих союзов у него не осталось
+    if (node.duplicate) return;
+    placeDesc(b, node, cursor, gen.get(root)! - minGen);
+    cursor += node.width + D.hGap * 3;
+  };
+  for (const root of order) if (!hasParents(root) && !expanded.has(root)) placeBranch(root);
+  // Подстраховка от ошибок в данных (например, человек записан своим же предком):
+  // кого не нарисовали — ставим отдельной веткой
+  const drawn = () => new Set(b.cards.map((c) => c.personId));
+  let shown = drawn();
+  for (const id of order) {
+    if (shown.has(id)) continue;
+    placeBranch(id);
+    shown = drawn();
+  }
+  keepOneSolidCard(b.cards);
+  return b.result();
+}
+
+/**
+ * У каждого человека — одна «настоящая» карточка, остальные — «ссылки» (пунктир).
+ * Главнее карточка в своей ветке (main), иначе первая карточка супруга.
+ */
+function keepOneSolidCard(cards: CardBox[]): void {
+  const solid = new Set<PersonId>();
+  for (const pass of [true, false]) {
+    for (const c of cards) {
+      if (c.duplicate || (c.role === 'main') !== pass) continue;
+      if (solid.has(c.personId)) c.duplicate = true;
+      else solid.add(c.personId);
+    }
   }
 }
