@@ -147,12 +147,16 @@ export function ArtTreeContent({
         stagger: !!layout.grove,
         text: (n) => {
           const p = tree.people[n.personId];
-          const name = cut((p && shownNames(p).given) || t('common.unnamed'), layout.grove ? 12 : 16);
-          // Жена или муж маленьким кружком рядом — имя второй строкой: «∞ Шарофат»
+          const names = p ? shownNames(p) : undefined;
+          const name = cut(names?.given || t('common.unnamed'), layout.grove ? 12 : 16);
+          const surname = names?.surname ? cut(names.surname, layout.grove ? 14 : 18) : undefined;
+          // Жена или муж маленьким кружком рядом — отдельной строкой: «∞ Шарофат Набиева»
           const spouseNames = simple
             ? []
-            : n.spouses.map((id) => tree.people[id] && shownNames(tree.people[id]!).given).filter((x): x is string => !!x);
-          return { name, spouse: spouseNames.length ? cut(`∞ ${spouseNames.join(', ')}`, 20) : undefined };
+            : n.spouses
+                .map((id) => tree.people[id] && givenSurname(tree.people[id]!))
+                .filter((x): x is string => !!x);
+          return { name, surname, spouse: spouseNames.length ? cut(`∞ ${spouseNames.join(', ')}`, 26) : undefined };
         },
       }),
     [nodes, under, vp.scale, print, focusId, selectedId, layout.grove, tree, simple, t],
@@ -360,6 +364,8 @@ interface LabelSpec {
   years: boolean;
   /** Имя (уже обрезанное) */
   name: string;
+  /** Фамилия — второй строкой */
+  surname?: string;
   /** Вторая строка — супруг(а): «∞ Шарофат» */
   spouse?: string;
   /** Сдвиг подписи вниз («ступенька», чтобы не налезть на подпись соседа) */
@@ -384,7 +390,7 @@ function placeLabels(
     selectedId?: string;
     founders?: string[];
     stagger: boolean;
-    text: (n: ArtNode) => { name: string; spouse?: string };
+    text: (n: ArtNode) => { name: string; surname?: string; spouse?: string };
   },
 ): Map<string, LabelSpec> {
   const out = new Map<string, LabelSpec>();
@@ -398,11 +404,11 @@ function placeLabels(
   for (const n of sorted) {
     if (level === 'key' && important(n) > 2) continue;
     const years = level === 'full';
-    const { name, spouse } = opts.text(n);
+    const { name, surname, spouse } = opts.text(n);
     const withSpouse = level !== 'key' ? spouse : undefined;
     // Ширина и высота подложки — по длине самой длинной строки (как в ArtPerson)
-    const w = Math.max(name.length, (withSpouse?.length ?? 0) * 0.85) * font * 0.6 + 18;
-    const h = labelHeight(font, 1 + (withSpouse ? 1 : 0) + (years ? 1 : 0));
+    const w = Math.max(name.length, (surname?.length ?? 0) * 0.85, (withSpouse?.length ?? 0) * 0.82) * font * 0.6 + 18;
+    const h = labelHeight(font, 1 + (surname ? 1 : 0) + (withSpouse ? 1 : 0) + (years ? 1 : 0));
     // Сначала прямо под кружком, в роще — ещё и ступенькой ниже (если рядом уже стоит подпись супруга)
     const tries = opts.stagger ? [0, h + 4, 2 * (h + 4)] : [0];
     let dy: number | undefined;
@@ -415,7 +421,7 @@ function placeLabels(
       }
     }
     if (dy === undefined) continue;
-    out.set(n.key, { font, years, name, spouse: withSpouse, dy });
+    out.set(n.key, { font, years, name, surname, spouse: withSpouse, dy });
   }
   return out;
 }
@@ -545,14 +551,17 @@ const ArtPerson = memo(function ArtPerson({
   const name = givenSurname(person) || t('common.unnamed');
   const font = spec?.font ?? 14;
   const showYears = !!spec?.years && !!years;
-  const lines = 1 + (spec?.spouse ? 1 : 0) + (showYears ? 1 : 0);
+  // Строки подписи: имя, фамилия, супруг(а), годы — у каждой свой класс и доля размера шрифта
+  const lines: { text: string; cls: string; k: number }[] = spec
+    ? [
+        { text: spec.name, cls: 'art-name', k: 1 },
+        ...(spec.surname ? [{ text: spec.surname, cls: 'art-surname', k: 0.85 }] : []),
+        ...(spec.spouse ? [{ text: spec.spouse, cls: 'art-spouse-name', k: 0.8 }] : []),
+        ...(showYears ? [{ text: years, cls: 'art-years', k: 0.8 }] : []),
+      ]
+    : [];
   // Ширина подложки подписи — по самой длинной строке
-  const labelW =
-    Math.max(
-      (spec?.name.length ?? 0) * font * 0.6,
-      (spec?.spouse?.length ?? 0) * font * 0.5,
-      showYears ? years.length * font * 0.46 : 0,
-    ) + 18;
+  const labelW = Math.max(0, ...lines.map((l) => l.text.length * font * l.k * 0.6)) + 18;
   const cls = [
     'art-person',
     `card-${person.sex}`,
@@ -622,20 +631,12 @@ const ArtPerson = memo(function ArtPerson({
         <g className="art-label" transform={spec.dy ? `translate(0 ${spec.dy})` : undefined}>
           {/* Подпись ступенькой ниже — тонкая черта к своему кружку */}
           {spec.dy > 0 && <path d={`M 0 ${n.r + 5 - spec.dy} L 0 ${n.r + 5}`} className="art-label-tick" />}
-          <rect className="art-label-bg" x={-labelW / 2} y={n.r + 5} width={labelW} height={labelHeight(font, lines)} rx={font * 0.65} />
-          <text className="art-name" y={n.r + 5 + font * 1.15} textAnchor="middle" fontSize={font}>
-            {spec.name}
-          </text>
-          {spec.spouse && (
-            <text className="art-spouse-name" y={n.r + 5 + font * 2.1} textAnchor="middle" fontSize={font * 0.82}>
-              {spec.spouse}
+          <rect className="art-label-bg" x={-labelW / 2} y={n.r + 5} width={labelW} height={labelHeight(font, lines.length)} rx={font * 0.65} />
+          {lines.map((l, i) => (
+            <text key={l.cls} className={l.cls} y={n.r + 5 + font * (1.15 + i)} textAnchor="middle" fontSize={font * l.k}>
+              {l.text}
             </text>
-          )}
-          {showYears && (
-            <text className="art-years" y={n.r + 5 + font * (spec.spouse ? 3.05 : 2.15)} textAnchor="middle" fontSize={font * 0.82}>
-              {years}
-            </text>
-          )}
+          ))}
         </g>
       )}
       {n.more && (
