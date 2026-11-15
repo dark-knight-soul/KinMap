@@ -1,8 +1,9 @@
 import { ArrowLeft, Crosshair, Star, Trash, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { findKinship } from '../model/kinship';
 import { nameKinship } from '../model/kinshipTerms';
+import { patronymicSuggestions } from '../model/patronymic';
 import { removePerson, setRootPerson, updatePerson } from '../model/ops';
 import { childrenOf, isLiving, parentsOf, siblingsOf, spousesOf } from '../model/queries';
 import type { LifeEvent, Person, PersonNames } from '../model/types';
@@ -160,7 +161,7 @@ export function PersonEditor() {
         <div className="tab-panel">
           <div className="form-grid form-grid-3">
             <TextField id="field-given" label={t('person.given')} value={person.names.given} onChange={setName('given')} />
-            <TextField id="field-patronymic" label={t('person.patronymic')} value={person.names.patronymic} onChange={setName('patronymic')} />
+            <PatronymicField person={person} onChange={setName('patronymic')} />
             <TextField id="field-surname" label={t('person.surname')} value={person.names.surname} onChange={setName('surname')} />
           </div>
           {person.names.birthSurname || showBirthSurname ? (
@@ -309,6 +310,35 @@ function RelationToRoot({ personId }: { personId: string }) {
       </button>
       {open && <KinshipDialog initialA={rootId} initialB={personId} onClose={() => setOpen(false)} />}
     </>
+  );
+}
+
+/** Отчество с выпадающим списком: от отца, от имён мужчин древа, уже записанные отчества */
+function PatronymicField({ person, onChange }: { person: Person; onChange: (v: string) => void }) {
+  const { t, i18n } = useTranslation();
+  const tree = useApp((s) => s.session!.history.present);
+  const listId = useId();
+  const uzbek = i18n.resolvedLanguage === 'uz';
+  const options = useMemo(() => {
+    const father = parentsOf(tree, person.id).find((p) => p.person.sex === 'M')?.person.names.given;
+    return patronymicSuggestions(tree, person.sex, { father, uzbek, exclude: person.id });
+  }, [tree, person.id, person.sex, uzbek]);
+  return (
+    <label className="field">
+      <span>{t('person.patronymic')}</span>
+      <input
+        id="field-patronymic"
+        value={person.names.patronymic ?? ''}
+        onChange={(e) => onChange(e.target.value)}
+        list={listId}
+        autoComplete="off"
+      />
+      <datalist id={listId}>
+        {options.map((v) => (
+          <option key={v} value={v} />
+        ))}
+      </datalist>
+    </label>
   );
 }
 

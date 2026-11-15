@@ -210,6 +210,7 @@ export const uz: EnDictionary = {
     otherParentUnknown: 'Boshqa kishi / nomaʼlum',
     born: 'Tug‘ilgan',
     bornPlaceholder: 'yil yoki sana',
+    patronymicPlaceholder: 'tanlang yoki yozing',
     newPerson: 'Yangi kishi',
     createNew: 'Yangi qo‘shish',
     orExisting: 'Yoki shajaradan tanlang',

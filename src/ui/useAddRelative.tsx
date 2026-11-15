@@ -12,7 +12,7 @@ import { childrenOf, parentsOf, siblingsOf, spousesOf, unionsOf } from '../model
 import type { Person, PersonId, Sex, TreeData } from '../model/types';
 import { apply, getState, select } from '../state/store';
 import { useNameOf } from './format';
-import { PersonPicker, type PickChoice } from './PersonPicker';
+import { PersonPicker, type PickChoice, type PickerDefaults } from './PersonPicker';
 
 // Добавление родственника — общее для карточки человека, кнопок «+» на схеме
 // и меню правой кнопки. Открывает окно выбора «новый человек или уже есть в древе».
@@ -29,7 +29,7 @@ export type RelativeKind =
 
 interface PickerState {
   title: string;
-  defaults: { sex?: Sex; surname?: string };
+  defaults: PickerDefaults;
   exclude: PersonId[];
   /** Выбор «второй родитель» для ребёнка, если у человека несколько союзов */
   familyChoices?: { value: string; label: string }[];
@@ -55,6 +55,9 @@ export function useAddRelative() {
     const childSurname = (partner?: Person) =>
       person.sex === 'M' ? surname : partner?.sex === 'M' ? partner.names.surname : surname;
     const children = childrenOf(tree, personId).map((c) => c.person.id);
+    // Имя отца ребёнка — для отчества: сам человек, если он мужчина, иначе его партнёр-мужчина
+    const childFather = (partner?: Person) =>
+      person.sex === 'M' ? person.names.given : partner?.sex === 'M' ? partner.names.given : undefined;
 
     if (kind === 'father' || kind === 'mother' || kind === 'parent') {
       const sex: Sex = kind === 'father' ? 'M' : kind === 'mother' ? 'F' : 'U';
@@ -75,7 +78,12 @@ export function useAddRelative() {
     } else if (kind === 'sibling') {
       open({
         title: t('picker.titleSibling'),
-        defaults: { surname },
+        // Отчество — от общего отца, а если он не записан — как у самого человека
+        defaults: {
+          surname,
+          father: parentsOf(tree, personId).find((p) => p.person.sex === 'M')?.person.names.given,
+          patronymic: person.names.patronymic,
+        },
         exclude: [...siblingsOf(tree, personId).full, ...siblingsOf(tree, personId).half].map((p) => p.id),
         link: (tr, pid) => linkSibling(tr, personId, pid).tree,
       });
@@ -89,7 +97,17 @@ export function useAddRelative() {
       ];
       open({
         title: t('picker.titleChild'),
-        defaults: { surname: childSurname(unions[0] ? partnerOf(unions[0].id) : undefined) },
+        defaults: {
+          surname: childSurname(unions[0] ? partnerOf(unions[0].id) : undefined),
+          father: childFather(unions[0] ? partnerOf(unions[0].id) : undefined),
+          // Если союзов несколько — отец зависит от выбора «второго родителя»
+          fatherByFamily: unions.length
+            ? Object.fromEntries([
+                ...unions.map((f) => [f.id, childFather(partnerOf(f.id))] as const),
+                [NO_FAMILY, childFather(undefined)] as const,
+              ])
+            : undefined,
+        },
         exclude: children,
         familyChoices: unions.length ? choices : undefined,
         link: (tr, pid, fid) => {
@@ -104,7 +122,7 @@ export function useAddRelative() {
       const partner = fam ? tree.people[fam.partners.find((p) => p !== personId) ?? ''] : undefined;
       open({
         title: t('picker.titleChild'),
-        defaults: { surname: childSurname(partner) },
+        defaults: { surname: childSurname(partner), father: childFather(partner) },
         exclude: children,
         link: (tr, pid) => linkChild(tr, personId, pid, { familyId: kind.childIn }).tree,
       });

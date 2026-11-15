@@ -214,6 +214,7 @@ export const en: EnDictionary = {
     otherParentUnknown: 'Someone else / unknown',
     born: 'Born',
     bornPlaceholder: 'year or date',
+    patronymicPlaceholder: 'choose or type',
     newPerson: 'New person',
     createNew: 'Add new',
     orExisting: 'Or pick someone from the tree',

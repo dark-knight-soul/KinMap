@@ -1,7 +1,8 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useId, useMemo, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { parseFuzzyDate } from '../model/dates';
 import { genderSurname } from '../model/names';
+import { genderPatronymic, patronymicFrom, patronymicSuggestions } from '../model/patronymic';
 import type { NewPerson } from '../model/ops';
 import { matchesQuery, sortKey } from '../model/queries';
 import type { PersonId, Sex } from '../model/types';
@@ -16,6 +17,17 @@ import { Modal } from './Modal';
 
 export type PickChoice = { existing: PersonId } | { create: NewPerson };
 
+export interface PickerDefaults {
+  sex?: Sex;
+  surname?: string;
+  /** Имя отца — из него получается отчество (Иван → Иванович / Ивановна) */
+  father?: string;
+  /** Имя отца для каждого варианта «второго родителя» (если отец зависит от выбора) */
+  fatherByFamily?: Record<string, string | undefined>;
+  /** Готовое отчество (например, у брата/сестры), если имя отца неизвестно */
+  patronymic?: string;
+}
+
 const MAX_MATCHES = 8;
 
 export function PersonPicker({
@@ -27,14 +39,14 @@ export function PersonPicker({
   onClose,
 }: {
   title: string;
-  defaults: { sex?: Sex; surname?: string };
+  defaults: PickerDefaults;
   exclude: PersonId[];
   /** «Второй родитель» — если у человека несколько союзов */
   familyChoices?: { value: string; label: string }[];
   onPick: (choice: PickChoice, family?: string) => void;
   onClose: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const tree = useApp((s) => s.session!.history.present);
   const nameOf = useNameOf();
   const [given, setGiven] = useState('');
@@ -49,9 +61,36 @@ export function PersonPicker({
   const setSex = (s: Sex) => {
     setSexState(s);
     if (!surnameTouched) setSurnameState((cur) => genderSurname(cur, s));
+    if (!patronymicTouched) setPatronymicState(autoPatronymic(s, family));
   };
   const [born, setBorn] = useState('');
-  const [family, setFamily] = useState(familyChoices?.[0]?.value);
+  const [family, setFamilyState] = useState(familyChoices?.[0]?.value);
+
+  // Отчество подставляется само (от имени отца или как у брата/сестры),
+  // пока его не правили руками; меняется вместе с полом и выбором второго родителя.
+  const fatherFor = (fam: string | undefined) =>
+    defaults.fatherByFamily && fam !== undefined ? defaults.fatherByFamily[fam] : defaults.father;
+  const autoPatronymic = (s: Sex, fam: string | undefined) =>
+    patronymicFrom(fatherFor(fam), s) || (defaults.patronymic ? (genderPatronymic(defaults.patronymic, s) ?? '') : '');
+  const [patronymic, setPatronymicState] = useState(() => autoPatronymic(sex, family));
+  const [patronymicTouched, setPatronymicTouched] = useState(false);
+  const setPatronymic = (v: string) => {
+    setPatronymicTouched(true);
+    setPatronymicState(v);
+  };
+  const setFamily = (fam: string) => {
+    setFamilyState(fam);
+    if (!patronymicTouched) setPatronymicState(autoPatronymic(sex, fam));
+  };
+  const uzbek = i18n.resolvedLanguage === 'uz';
+  const patronymicList = useMemo(
+    () => patronymicSuggestions(tree, sex, { father: fatherFor(family), uzbek }),
+    [tree, sex, family, uzbek],
+  );
+  // В английском интерфейсе отчество не принято — поле показываем, только если в древе оно уже где-то есть
+  const showPatronymic =
+    i18n.resolvedLanguage !== 'en' || !!patronymic || Object.values(tree.people).some((p) => p.names.patronymic);
+  const listId = useId();
 
   const query = `${given} ${surname}`.trim();
   const matches = useMemo(() => {
@@ -70,7 +109,11 @@ export function PersonPicker({
       {
         create: {
           sex,
-          names: { given: given.trim() || undefined, surname: surname.trim() || undefined },
+          names: {
+            given: given.trim() || undefined,
+            patronymic: patronymic.trim() || undefined,
+            surname: surname.trim() || undefined,
+          },
           birth: date ? { date } : undefined,
         },
       },
@@ -86,20 +129,36 @@ export function PersonPicker({
             <span>{t('person.given')}</span>
             <input value={given} onChange={(e) => setGiven(e.target.value)} autoFocus />
           </label>
+          {showPatronymic && (
+            <label className="field">
+              <span>{t('person.patronymic')}</span>
+              {/* Список вариантов: от отца, от имён мужчин древа, уже записанные отчества */}
+              <input
+                value={patronymic}
+                onChange={(e) => setPatronymic(e.target.value)}
+                list={listId}
+                autoComplete="off"
+                placeholder={t('picker.patronymicPlaceholder')}
+              />
+              <datalist id={listId}>
+                {patronymicList.map((v) => (
+                  <option key={v} value={v} />
+                ))}
+              </datalist>
+            </label>
+          )}
           <label className="field">
             <span>{t('person.surname')}</span>
             <input value={surname} onChange={(e) => setSurname(e.target.value)} />
           </label>
-        </div>
-        <div className="form-grid form-grid-2">
-          <div className="field">
-            <span>{t('person.sex')}</span>
-            <SexToggle value={sex} onChange={setSex} />
-          </div>
           <label className="field">
             <span>{t('picker.born')}</span>
             <input value={born} onChange={(e) => setBorn(e.target.value)} placeholder={t('picker.bornPlaceholder')} />
           </label>
+        </div>
+        <div className="field">
+          <span>{t('person.sex')}</span>
+          <SexToggle value={sex} onChange={setSex} />
         </div>
         {familyChoices && familyChoices.length > 1 && (
           <label className="field">

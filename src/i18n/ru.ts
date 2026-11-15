@@ -206,6 +206,7 @@ export const ru = {
     otherParentUnknown: 'Другой или неизвестен',
     born: 'Родился(ась)',
     bornPlaceholder: 'год или дата',
+    patronymicPlaceholder: 'выберите или впишите',
     newPerson: 'Новый человек',
     createNew: 'Добавить нового',
     orExisting: 'Или выберите из древа',
