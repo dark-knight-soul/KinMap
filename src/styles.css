@@ -1701,3 +1701,14 @@ kbd {
 .art-ghost-label { font-size: 12px; fill: var(--muted); pointer-events: none; }
 .art-ghost:hover .art-ghost-disc { stroke: var(--accent); stroke-dasharray: none; }
 .art-ghost:hover .art-ghost-plus, .art-ghost:hover .art-ghost-label { fill: var(--accent); }
+
+/* «Полный»: земля и корни с потомками */
+.art-earth { fill: color-mix(in srgb, var(--tree-bark) 9%, transparent); }
+.art-root-branch { fill: none; stroke: color-mix(in srgb, var(--tree-bark) 80%, var(--canvas-bg)); stroke-linecap: round; }
+/* «Весь род»: родители супруга из другой семьи */
+.art-inlaw { cursor: pointer; }
+.art-inlaw .art-disc { stroke-width: 1.5; }
+.art-inlaw.card-M .art-disc { stroke: var(--sex-m); }
+.art-inlaw.card-F .art-disc { stroke: var(--sex-f); }
+.art-inlaw:hover .art-disc { stroke: var(--accent); }
+.art-inlaw-line { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; fill: none; }

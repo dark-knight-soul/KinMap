@@ -1,6 +1,15 @@
 import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ART_GHOST_R, TRUNK_H, branchWidth, trunkHalf, type ArtGhost, type ArtNode, type ArtTreeLayout } from '../../layout/artTreeLayout';
+import {
+  ART_GHOST_R,
+  ROOTS_ANCHOR,
+  TRUNK_H,
+  branchWidth,
+  trunkHalf,
+  type ArtGhost,
+  type ArtNode,
+  type ArtTreeLayout,
+} from '../../layout/artTreeLayout';
 import type { RelativeKind } from '../useAddRelative';
 import type { MediaStore } from '../../file/format';
 import { avatarGeometry } from '../../file/images';
@@ -16,6 +25,8 @@ import type { Viewport } from './PanZoom';
 // Раскладка — в layout/artTreeLayout.ts, здесь только рисование.
 
 const SPOUSE_R = 17;
+/** Родители супруга из другой семьи (режим «Весь род») — совсем маленькие кружки */
+const IN_LAW_R = 11;
 const NO_MEDIA: MediaStore = {};
 /** Больше стольких людей — без декоративных листьев (ради скорости) */
 const LEAVES_LIMIT = 1500;
@@ -112,6 +123,19 @@ export function ArtTreeContent({
   const trunk = trunkHalf(root?.weight ?? 1);
   // Облака кроны — только у видимых и когда людей не слишком много
   const crown = layout.nodes.length <= LEAVES_LIMIT ? layout.nodes.filter((n) => visible(n, layout.crownR + 40)) : [];
+  // Корни (режим «Полный»): узлы под землёй и точка у основания ствола, откуда они растут
+  const underByKey = useMemo(() => new Map(layout.under.map((n) => [n.key, n])), [layout]);
+  const anchor: ArtNode = { key: ROOTS_ANCHOR, personId: '', gen: 0, x: 0, y: TRUNK_H + 10, r: 0, angle: Math.PI / 2, spouses: [], hasChildren: true, weight: 1 };
+  const under = layout.under.filter((n) => visible(n));
+  const earth = layout.under.length
+    ? (() => {
+        const xs = layout.under.map((n) => n.x);
+        const left = Math.min(-trunk * 3, ...xs) - 120;
+        const right = Math.max(trunk * 3, ...xs) + 120;
+        const bottom = Math.max(...layout.under.map((n) => n.y)) + 80;
+        return { x: left, w: right - left, h: bottom - TRUNK_H - 8 };
+      })()
+    : null;
   const photoUrl = (p: Person | undefined) => {
     const ph = p?.photos?.[0];
     const bytes = ph ? media[ph.id] : undefined;
@@ -142,10 +166,12 @@ export function ArtTreeContent({
           </g>
         </g>
       )}
+      {/* Режим «Полный»: потомки — в корнях, под землёй */}
+      {earth && <rect className="art-earth" x={earth.x} y={TRUNK_H + 8} width={earth.w} height={earth.h} rx={48} />}
       <ellipse cx={0} cy={TRUNK_H + 14} rx={Math.max(260, trunk * 14)} ry={34} fill="url(#km-art-ground)" />
       <path className="art-trunk" d={trunkPath(trunk)} />
       {/* Родословное дерево: где чей род */}
-      {layout.mode === 'ancestors' && !simple && layout.nodes.length > 1 && (
+      {(layout.mode === 'ancestors' || layout.mode === 'full') && !simple && layout.nodes.length > 1 && (
         <g className="art-sides" aria-hidden="true">
           <text x={-trunk * 1.6 - 30} y={TRUNK_H * 0.72} textAnchor="end">
             ← {t('tree.fatherSide')}
@@ -163,6 +189,15 @@ export function ArtTreeContent({
           return <path key={n.key} d={branchPath(parent, n)} className="art-branch" strokeWidth={branchWidth(n.weight)} />;
         })}
       </g>
+      {layout.under.length > 0 && (
+        <g className={pathIds ? 'art-branches dimmed' : 'art-branches'}>
+          {layout.under.map((n) => {
+            const parent = n.parentKey === ROOTS_ANCHOR ? anchor : n.parentKey ? underByKey.get(n.parentKey) : undefined;
+            if (!parent || (!visible(n, 400) && !visible(parent, 400))) return null;
+            return <path key={n.key} d={branchPath(parent, n)} className="art-root-branch" strokeWidth={branchWidth(n.weight) * 0.8} />;
+          })}
+        </g>
+      )}
       {/* Пустые места для неизвестных родителей: по клику — добавить */}
       {!print && onQuickAdd && !simple && layout.ghosts.length > 0 && (
         <g className="art-ghosts">
@@ -182,7 +217,7 @@ export function ArtTreeContent({
           })}
         </g>
       )}
-      {nodes.map((n) => {
+      {[...nodes, ...under].map((n) => {
         const p = tree.people[n.personId];
         if (!p) return null;
         return (
@@ -196,7 +231,16 @@ export function ArtTreeContent({
             focus={!print && p.id === focusId && p.id !== layout.rootId}
             simple={simple}
             path={pathIds ? (pathIds.has(p.id) ? 'in' : 'out') : undefined}
-            spouses={simple ? [] : n.spouses.map((id) => ({ person: tree.people[id]!, photo: photoUrl(tree.people[id]) }))}
+            moreAbove={!n.under && (layout.mode === 'ancestors' || layout.mode === 'full')}
+            spouses={
+              simple
+                ? []
+                : n.spouses.map((id) => ({
+                    person: tree.people[id]!,
+                    photo: photoUrl(tree.people[id]),
+                    parents: (n.spouseParents?.[id] ?? []).map((pid) => tree.people[pid]!).filter(Boolean),
+                  }))
+            }
           />
         );
       })}
@@ -281,6 +325,7 @@ const ArtPerson = memo(function ArtPerson({
   simple,
   path,
   spouses,
+  moreAbove,
 }: {
   n: ArtNode;
   person: Person;
@@ -290,7 +335,10 @@ const ArtPerson = memo(function ArtPerson({
   focus: boolean;
   simple: boolean;
   path?: 'in' | 'out';
-  spouses: { person: Person; photo?: string }[];
+  /** parents — родители супруга из другой семьи (режим «Весь род») */
+  spouses: { person: Person; photo?: string; parents: Person[] }[];
+  /** «Есть ещё» — предки (стрелка вверх) или потомки (вниз) */
+  moreAbove: boolean;
 }) {
   const { t } = useTranslation();
   const years = lifespan(person);
@@ -329,6 +377,27 @@ const ArtPerson = memo(function ArtPerson({
             {...contextMenuHandlers(s.person.id)}
           >
             <title>{givenSurname(s.person)}</title>
+            {/* Родители супруга, пришедшего из другой семьи: два кружка над ним */}
+            {s.parents.map((pp, j) => {
+              const px = (j - (s.parents.length - 1) / 2) * (IN_LAW_R * 2 + 6);
+              const py = -SPOUSE_R - 24;
+              return (
+                <g
+                  key={pp.id}
+                  className={`art-inlaw card-${pp.sex}`}
+                  onClick={(e) => (e.stopPropagation(), select(pp.id))}
+                  onDoubleClick={(e) => (e.stopPropagation(), setFocus(pp.id))}
+                  {...contextMenuHandlers(pp.id)}
+                >
+                  <title>{`${givenSurname(pp)} — ${t(pp.sex === 'F' ? 'relations.mother' : 'relations.father')}: ${givenSurname(s.person)}`}</title>
+                  <path d={`M ${px} ${py + IN_LAW_R} L 0 ${-SPOUSE_R}`} className="art-inlaw-line" />
+                  <circle cx={px} cy={py} r={IN_LAW_R} className="art-disc" />
+                  <text className="art-initials" x={px} y={py + 3.5} textAnchor="middle" fontSize={8.5}>
+                    {initials(pp)}
+                  </text>
+                </g>
+              );
+            })}
             <circle r={SPOUSE_R} className="art-disc" />
             {s.photo ? (
               <svg x={-SPOUSE_R} y={-SPOUSE_R} width={SPOUSE_R * 2} height={SPOUSE_R * 2} overflow="hidden">
@@ -377,11 +446,15 @@ const ArtPerson = memo(function ArtPerson({
         </g>
       )}
       {n.more && (
-        <g className="more" onClick={(e) => (e.stopPropagation(), setFocus(person.id))} transform={`translate(0 ${-n.r - 4})`}>
-          <title>{t('tree.moreBelow')}</title>
+        <g
+          className="more"
+          onClick={(e) => (e.stopPropagation(), setFocus(person.id))}
+          transform={`translate(0 ${n.under ? n.r + 50 : -n.r - 4})`}
+        >
+          <title>{t(moreAbove ? 'tree.moreAbove' : 'tree.moreBelow')}</title>
           <circle r={9} />
           <text y={4} textAnchor="middle">
-            ▲
+            {n.under ? '▼' : '▲'}
           </text>
         </g>
       )}

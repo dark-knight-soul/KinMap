@@ -11,6 +11,9 @@ import type { Bounds } from './types';
 //                 Неизвестный отец или мать — пустой кружок «+», чтобы видеть пробелы.
 //   descendants — дерево потомков: родоначальник над стволом, дети — толстые ветви,
 //                 внуки — тоньше и т.д.
+//   full        — человек целиком: предки в кроне (как ancestors), потомки — в корнях под землёй.
+//   clan        — весь род: потомки самого старшего предка по отцу, а у жён и мужей,
+//                 пришедших из других семей, — их родители (маленькие кружки над супругом).
 //
 // Люди — круглые «листья» с фото или инициалами. Крона — полукруг вверх: у каждой ветви
 // свой сектор, пропорциональный числу её «концевых» людей, поэтому ветви не перекрещиваются.
@@ -29,7 +32,12 @@ const PAD = 0.32;
 const GHOST_WEIGHT = 0.6;
 export const TRUNK_H = 190;
 
-export type ArtMode = 'ancestors' | 'descendants';
+export type ArtMode = 'ancestors' | 'descendants' | 'full' | 'clan';
+
+/** Ключ «узла-основания» корней: от него идут корни к детям в режиме full */
+export const ROOTS_ANCHOR = 'roots-anchor';
+/** Откуда растут корни (y): чуть ниже земли */
+export const ROOTS_TOP = TRUNK_H + 36;
 
 export interface ArtNode {
   key: string;
@@ -49,6 +57,10 @@ export interface ArtNode {
   more?: boolean;
   /** Сколько «концевых» людей у ветви (сам человек — 1): от этого толщина ветви */
   weight: number;
+  /** Человек в корнях (потомок в режиме full): рисуется под землёй, без листвы */
+  under?: boolean;
+  /** Родители супругов, пришедших из других семей (режим clan): супруг → [отец, мать] */
+  spouseParents?: Record<PersonId, PersonId[]>;
 }
 
 /** Пустое место для неизвестного отца или матери: по клику — добавить */
@@ -68,6 +80,8 @@ export interface ArtTreeLayout {
   rootId: PersonId;
   nodes: ArtNode[];
   ghosts: ArtGhost[];
+  /** Потомки в корнях (режим full); у детей человека parentKey = ROOTS_ANCHOR */
+  under: ArtNode[];
   bounds: Bounds;
   /** Радиус «облака» кроны вокруг каждого человека */
   crownR: number;
@@ -94,8 +108,8 @@ interface TNode {
  * предка по отцовской линии, чтобы человек оказался на ветке своего рода.
  * depth — на каком поколении от корня стоит выбранный человек.
  */
-export function artTreeRoot(tree: TreeData, focus: PersonId): { root: PersonId; depth: number } {
-  if (!tree.people[focus] || childrenOf(tree, focus).length) return { root: focus, depth: 0 };
+export function artTreeRoot(tree: TreeData, focus: PersonId, always = false): { root: PersonId; depth: number } {
+  if (!tree.people[focus] || (!always && childrenOf(tree, focus).length)) return { root: focus, depth: 0 };
   const seen = new Set<PersonId>([focus]);
   let cur = focus;
   let depth = 0;
@@ -113,8 +127,8 @@ export function artTreeRoot(tree: TreeData, focus: PersonId): { root: PersonId; 
 }
 
 /** Дерево потомков (как раньше) */
-export function layoutArtTree(tree: TreeData, rootId: PersonId, maxGen: number): ArtTreeLayout {
-  if (!tree.people[rootId]) return emptyLayout(rootId, 'descendants');
+export function layoutArtTree(tree: TreeData, rootId: PersonId, maxGen: number, mode: ArtMode = 'descendants'): ArtTreeLayout {
+  if (!tree.people[rootId]) return emptyLayout(rootId, mode);
   const seen = new Set<PersonId>();
   const birth = (id: PersonId) => approxYear(tree.people[id]?.birth?.date) ?? 99999;
   let depth = 0;
@@ -137,7 +151,58 @@ export function layoutArtTree(tree: TreeData, rootId: PersonId, maxGen: number):
     return node;
   };
   const root = build(rootId, 0);
-  return radial(tree, 'descendants', root, depth, () => true);
+  return radial(tree, mode, root, depth, () => true);
+}
+
+/** Сколько поколений показывать во «Всём роде» — по сути без ограничения */
+const CLAN_DEPTH = 100;
+
+/**
+ * Весь род: потомки самого старшего предка по отцу (выбранный человек — на своей ветке),
+ * у супругов из других семей — их родители.
+ */
+export function layoutArtClan(tree: TreeData, focusId: PersonId): ArtTreeLayout {
+  const { root } = artTreeRoot(tree, focusId, true);
+  const layout = layoutArtTree(tree, root, CLAN_DEPTH, 'clan');
+  const inClan = new Set(layout.nodes.map((n) => n.personId));
+  for (const n of layout.nodes) {
+    const sp: Record<PersonId, PersonId[]> = {};
+    for (const s of n.spouses) {
+      if (inClan.has(s)) continue;
+      const parents = parentsForTree(tree, s);
+      const ids = [parents.father, parents.mother].filter((x): x is PersonId => !!x);
+      if (ids.length) sp[s] = ids;
+    }
+    if (Object.keys(sp).length) n.spouseParents = sp;
+  }
+  return layout;
+}
+
+/**
+ * Человек целиком: предки в кроне (род отца слева, матери справа), потомки — в корнях.
+ * Корни — то же дерево потомков, отражённое вниз от основания ствола.
+ */
+export function layoutArtFull(tree: TreeData, focusId: PersonId, gens: number, ghosts = true): ArtTreeLayout {
+  const anc = layoutArtAncestors(tree, focusId, gens, ghosts);
+  if (!tree.people[focusId]) return { ...anc, mode: 'full' };
+  const desc = layoutArtTree(tree, focusId, gens);
+  const top = desc.nodes.find((n) => n.gen === 0);
+  const under: ArtNode[] = desc.nodes
+    .filter((n) => n.gen > 0)
+    .map((n) => ({
+      ...n,
+      y: ROOTS_TOP - n.y,
+      angle: -n.angle,
+      parentKey: n.parentKey === top?.key ? ROOTS_ANCHOR : n.parentKey,
+      under: true,
+    }));
+  const b = { ...anc.bounds };
+  for (const n of under) {
+    b.minX = Math.min(b.minX, n.x - n.r - 80);
+    b.maxX = Math.max(b.maxX, n.x + n.r + 80);
+    b.maxY = Math.max(b.maxY, n.y + n.r + 50);
+  }
+  return { ...anc, mode: 'full', under, bounds: b };
 }
 
 /**
@@ -195,7 +260,7 @@ function parentsForTree(tree: TreeData, id: PersonId): { father?: PersonId; moth
 }
 
 function emptyLayout(rootId: PersonId, mode: ArtMode): ArtTreeLayout {
-  return { mode, rootId, nodes: [], ghosts: [], bounds: { minX: -100, minY: -100, maxX: 100, maxY: TRUNK_H }, crownR: 0 };
+  return { mode, rootId, nodes: [], ghosts: [], under: [], bounds: { minX: -100, minY: -100, maxX: 100, maxY: TRUNK_H }, crownR: 0 };
 }
 
 /** Расстановка по полукругу: у каждой ветви свой сектор, пропорциональный её весу */
@@ -263,5 +328,5 @@ function radial(tree: TreeData, mode: ArtMode, root: TNode, depth: number, withS
     maxX = Math.max(maxX, nd.x + pad);
     minY = Math.min(minY, nd.y - Math.max(ART_NODE_R + 40, crownR));
   }
-  return { mode, rootId: root.id, nodes, ghosts, bounds: { minX, minY, maxX, maxY: TRUNK_H + 50 }, crownR };
+  return { mode, rootId: root.id, nodes, ghosts, under: [], bounds: { minX, minY, maxX, maxY: TRUNK_H + 50 }, crownR };
 }

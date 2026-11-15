@@ -1,6 +1,13 @@
 import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { artTreeRoot, layoutArtAncestors, layoutArtTree, type ArtTreeLayout } from '../../layout/artTreeLayout';
+import {
+  artTreeRoot,
+  layoutArtAncestors,
+  layoutArtClan,
+  layoutArtFull,
+  layoutArtTree,
+  type ArtTreeLayout,
+} from '../../layout/artTreeLayout';
 import { layoutButterfly } from '../../layout/butterflyLayout';
 import { FAN_CENTER_R, layoutCircle, layoutFan, type FanSegment } from '../../layout/fanLayout';
 import { layoutAll, layoutAncestors, layoutDescendants, layoutFamily } from '../../layout/treeLayout';
@@ -183,7 +190,7 @@ export type Computed =
 
 /** Настройки «Дерева» для раскладки (печать — без пустых мест «+ отец / + мать») */
 export interface ArtOptions {
-  mode: 'ancestors' | 'descendants';
+  mode: 'ancestors' | 'descendants' | 'full' | 'clan';
   up: number;
   print?: boolean;
 }
@@ -203,6 +210,14 @@ export function computeLayout(
     return { kind: 'fan', fan, bounds: { minX: -r, minY: -r, maxX: r, maxY: fan.full ? r : FAN_CENTER_R } };
   }
   if (chart === 'tree') {
+    if (art.mode === 'full') {
+      const full = layoutArtFull(tree, focus, art.up, !art.print);
+      return { kind: 'art', art: full, bounds: full.bounds };
+    }
+    if (art.mode === 'clan') {
+      const clan = layoutArtClan(tree, focus);
+      return { kind: 'art', art: clan, bounds: clan.bounds };
+    }
     if (art.mode === 'ancestors') {
       const anc = layoutArtAncestors(tree, focus, art.up, !art.print);
       return { kind: 'art', art: anc, bounds: anc.bounds };

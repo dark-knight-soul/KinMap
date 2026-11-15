@@ -3,6 +3,7 @@ import {
   ArrowUpFromLine,
   ChevronsDown,
   ChevronsUp,
+  ChevronsUpDown,
   Fan,
   Network,
   Orbit,
@@ -17,7 +18,18 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { matchesQuery, sortKey } from '../../model/queries';
 import { setFocus, useApp } from '../../state/store';
-import { CHART_KINDS, GEN_MAX, GEN_MIN, ROTATABLE, setView, useView, type ChartKind, type ColorMode } from '../../state/view';
+import {
+  ART_MODES,
+  CHART_KINDS,
+  GEN_MAX,
+  GEN_MIN,
+  ROTATABLE,
+  setView,
+  useView,
+  type ArtViewMode,
+  type ChartKind,
+  type ColorMode,
+} from '../../state/view';
 import { lifespan, useNameOf } from '../format';
 import { Avatar } from '../media';
 
@@ -47,15 +59,36 @@ const CHART_ICON: Record<ChartKind, (p: LucideProps) => React.ReactNode> = {
 const USES_UP: ChartKind[] = ['family', 'ancestors', 'butterfly', 'fan'];
 const USES_DOWN: ChartKind[] = ['family', 'descendants', 'butterfly', 'circle', 'tree'];
 const COLORS: ColorMode[] = ['sex', 'line', 'surname'];
+/** Режимы «Дерева»: значок, подпись, подсказка */
+const ART_ICON: Record<ArtViewMode, (p: LucideProps) => React.ReactNode> = {
+  ancestors: ChevronsUp,
+  descendants: ChevronsDown,
+  full: ChevronsUpDown,
+  clan: Network,
+};
+const ART_LABEL: Record<ArtViewMode, string> = {
+  ancestors: 'chart.ancestors',
+  descendants: 'chart.descendants',
+  full: 'chart.artFull',
+  clan: 'chart.artClan',
+};
+const ART_HINT: Record<ArtViewMode, string> = {
+  ancestors: 'chart.artAncestorsHint',
+  descendants: 'chart.artDescendantsHint',
+  full: 'chart.artFullHint',
+  clan: 'chart.artClanHint',
+};
 const GENS = Array.from({ length: GEN_MAX - GEN_MIN + 1 }, (_, i) => GEN_MIN + i);
 
 // Панель над схемой: вид схемы, сколько поколений, поиск человека.
 export function TreeToolbar() {
   const { t } = useTranslation();
   const view = useView();
-  const artAnc = view.chart === 'tree' && view.artMode === 'ancestors';
+  // «Дерево»: предки и «полный» — свой счётчик поколений (по умолчанию 7), «весь род» — без ограничения
+  const isArt = view.chart === 'tree';
+  const artAnc = isArt && (view.artMode === 'ancestors' || view.artMode === 'full');
   const showUp = USES_UP.includes(view.chart);
-  const showDown = USES_DOWN.includes(view.chart) && !artAnc;
+  const showDown = USES_DOWN.includes(view.chart) && (!isArt || view.artMode === 'descendants');
   const rotatable = ROTATABLE.includes(view.chart);
 
   return (
@@ -93,19 +126,22 @@ export function TreeToolbar() {
       )}
       {view.chart === 'tree' && (
         <div className="segmented art-mode" role="group" aria-label={t('chart.tree')}>
-          {(['ancestors', 'descendants'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              className={view.artMode === m ? 'active' : ''}
-              aria-pressed={view.artMode === m}
-              onClick={() => setView({ artMode: m })}
-              title={t(m === 'ancestors' ? 'chart.artAncestorsHint' : 'chart.artDescendantsHint')}
-            >
-              {m === 'ancestors' ? <ChevronsUp size={15} strokeWidth={1.75} /> : <ChevronsDown size={15} strokeWidth={1.75} />}
-              <span>{t(m === 'ancestors' ? 'chart.ancestors' : 'chart.descendants')}</span>
-            </button>
-          ))}
+          {ART_MODES.map((m) => {
+            const Icon = ART_ICON[m];
+            return (
+              <button
+                key={m}
+                type="button"
+                className={view.artMode === m ? 'active' : ''}
+                aria-pressed={view.artMode === m}
+                onClick={() => setView({ artMode: m })}
+                title={t(ART_HINT[m])}
+              >
+                <Icon size={15} strokeWidth={1.75} />
+                <span>{t(ART_LABEL[m])}</span>
+              </button>
+            );
+          })}
         </div>
       )}
       {artAnc && (

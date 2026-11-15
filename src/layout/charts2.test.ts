@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createBigTree, createDemoTree } from '../model/demo';
 import { addPerson, createTree } from '../model/ops';
 import type { TreeData } from '../model/types';
-import { artTreeRoot, layoutArtAncestors, layoutArtTree } from './artTreeLayout';
+import { ROOTS_ANCHOR, ROOTS_TOP, artTreeRoot, layoutArtAncestors, layoutArtClan, layoutArtFull, layoutArtTree } from './artTreeLayout';
 import { layoutButterfly } from './butterflyLayout';
 import { layoutCircle } from './fanLayout';
 import { layoutAncestors, layoutDescendants, layoutFamily } from './treeLayout';
@@ -164,5 +164,35 @@ describe('родословное «Дерево» (предки)', () => {
     const t = layoutArtAncestors(demo, artem, 2);
     expect(Math.max(...t.nodes.map((n) => n.gen))).toBe(2);
     expect(t.nodes.some((n) => n.more)).toBe(true);
+  });
+});
+
+describe('«Дерево»: полный и весь род', () => {
+  it('полный: предки в кроне (выше ствола), потомки в корнях (ниже земли)', () => {
+    const sergey = idOf(demo, 'Сергей');
+    const t = layoutArtFull(demo, sergey, 7);
+    expect(t.mode).toBe('full');
+    const up = t.nodes.find((n) => n.personId === idOf(demo, 'Иван'))!;
+    expect(up.y).toBeLessThan(0);
+    const child = t.under.find((n) => n.personId === idOf(demo, 'Алексей'))!;
+    expect(child.y).toBeGreaterThan(ROOTS_TOP);
+    expect(child.parentKey).toBe(ROOTS_ANCHOR);
+    // Внуки висят на своих родителях, а не на основании
+    const grand = t.under.find((n) => n.personId === idOf(demo, 'Артём'))!;
+    expect(grand.parentKey).toBe(child.key);
+    expect(grand.y).toBeGreaterThan(child.y);
+  });
+
+  it('весь род: от старшего предка по отцу, выбранный человек на ветке', () => {
+    const t = layoutArtClan(demo, idOf(demo, 'София'));
+    expect(demo.people[t.rootId]!.names.given).toBe('Пётр');
+    expect(t.nodes.some((n) => n.personId === idOf(demo, 'София'))).toBe(true);
+  });
+
+  it('весь род: у жены из другой семьи — её родители', () => {
+    const t = layoutArtClan(demo, idOf(demo, 'Алексей'));
+    const ivan = t.nodes.find((n) => n.personId === idOf(demo, 'Иван'))!;
+    const elena = idOf(demo, 'Елена');
+    expect(ivan.spouseParents?.[elena]?.map((id) => demo.people[id]!.names.given).sort()).toEqual(['Григорий', 'Мария']);
   });
 });
