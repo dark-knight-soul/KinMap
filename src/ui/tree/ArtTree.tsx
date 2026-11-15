@@ -143,9 +143,19 @@ export function ArtTreeContent({
         focusId,
         selectedId,
         founders: layout.grove?.founders,
-        chars: layout.grove ? 11 : 16,
+        // В роще супруги — отдельные кружки рядом: их подписи можно ставить «ступенькой»
+        stagger: !!layout.grove,
+        text: (n) => {
+          const p = tree.people[n.personId];
+          const name = cut((p && shownNames(p).given) || t('common.unnamed'), layout.grove ? 12 : 16);
+          // Жена или муж маленьким кружком рядом — имя второй строкой: «∞ Шарофат»
+          const spouseNames = simple
+            ? []
+            : n.spouses.map((id) => tree.people[id] && shownNames(tree.people[id]!).given).filter((x): x is string => !!x);
+          return { name, spouse: spouseNames.length ? cut(`∞ ${spouseNames.join(', ')}`, 20) : undefined };
+        },
       }),
-    [nodes, under, vp.scale, print, focusId, selectedId, layout.grove],
+    [nodes, under, vp.scale, print, focusId, selectedId, layout.grove, tree, simple, t],
   );
   const photoUrl = (p: Person | undefined) => {
     const ph = p?.photos?.[0];
@@ -348,9 +358,16 @@ interface LabelSpec {
   /** Размер шрифта имени (в единицах схемы) */
   font: number;
   years: boolean;
-  /** До скольких знаков обрезать имя */
-  chars: number;
+  /** Имя (уже обрезанное) */
+  name: string;
+  /** Вторая строка — супруг(а): «∞ Шарофат» */
+  spouse?: string;
+  /** Сдвиг подписи вниз («ступенька», чтобы не налезть на подпись соседа) */
+  dy: number;
 }
+
+/** Высота подложки подписи: строки имени, супруга и годов */
+const labelHeight = (font: number, lines: number) => font * (0.6 + lines);
 
 /**
  * Какие подписи показать и каким шрифтом — по масштабу:
@@ -362,7 +379,13 @@ function placeLabels(
   nodes: ArtNode[],
   scale: number,
   print: boolean,
-  opts: { focusId?: string; selectedId?: string; founders?: string[]; chars: number },
+  opts: {
+    focusId?: string;
+    selectedId?: string;
+    founders?: string[];
+    stagger: boolean;
+    text: (n: ArtNode) => { name: string; spouse?: string };
+  },
 ): Map<string, LabelSpec> {
   const out = new Map<string, LabelSpec>();
   const founders = new Set(opts.founders ?? []);
@@ -375,13 +398,24 @@ function placeLabels(
   for (const n of sorted) {
     if (level === 'key' && important(n) > 2) continue;
     const years = level === 'full';
-    // Ширина и высота подложки — примерно по длине имени (как в ArtPerson)
-    const w = opts.chars * font * 0.6 + 18;
-    const h = years ? font * 2.6 : font * 1.6;
-    const box: [number, number, number, number] = [n.x - w / 2, n.y + n.r + 5, n.x + w / 2, n.y + n.r + 5 + h];
-    if (!print && boxes.some((b) => b[0] < box[2] && box[0] < b[2] && b[1] < box[3] && box[1] < b[3])) continue;
-    boxes.push(box);
-    out.set(n.key, { font, years, chars: opts.chars });
+    const { name, spouse } = opts.text(n);
+    const withSpouse = level !== 'key' ? spouse : undefined;
+    // Ширина и высота подложки — по длине самой длинной строки (как в ArtPerson)
+    const w = Math.max(name.length, (withSpouse?.length ?? 0) * 0.85) * font * 0.6 + 18;
+    const h = labelHeight(font, 1 + (withSpouse ? 1 : 0) + (years ? 1 : 0));
+    // Сначала прямо под кружком, в роще — ещё и ступенькой ниже (если рядом уже стоит подпись супруга)
+    const tries = opts.stagger ? [0, h + 4, 2 * (h + 4)] : [0];
+    let dy: number | undefined;
+    for (const d of tries) {
+      const box: [number, number, number, number] = [n.x - w / 2, n.y + n.r + 5 + d, n.x + w / 2, n.y + n.r + 5 + d + h];
+      if (print || !boxes.some((b) => b[0] < box[2] && box[0] < b[2] && b[1] < box[3] && box[1] < b[3])) {
+        boxes.push(box);
+        dy = d;
+        break;
+      }
+    }
+    if (dy === undefined) continue;
+    out.set(n.key, { font, years, name, spouse: withSpouse, dy });
   }
   return out;
 }
@@ -509,11 +543,16 @@ const ArtPerson = memo(function ArtPerson({
   const { t } = useTranslation();
   const years = lifespan(person);
   const name = givenSurname(person) || t('common.unnamed');
-  const label = cut(shownNames(person).given ?? t('common.unnamed'), spec?.chars ?? 16);
   const font = spec?.font ?? 14;
   const showYears = !!spec?.years && !!years;
-  // Ширина подложки подписи — примерно по длине текста
-  const labelW = Math.max(label.length * font * 0.6, showYears ? years.length * font * 0.46 : 0) + 18;
+  const lines = 1 + (spec?.spouse ? 1 : 0) + (showYears ? 1 : 0);
+  // Ширина подложки подписи — по самой длинной строке
+  const labelW =
+    Math.max(
+      (spec?.name.length ?? 0) * font * 0.6,
+      (spec?.spouse?.length ?? 0) * font * 0.5,
+      showYears ? years.length * font * 0.46 : 0,
+    ) + 18;
   const cls = [
     'art-person',
     `card-${person.sex}`,
@@ -580,20 +619,20 @@ const ArtPerson = memo(function ArtPerson({
         )}
       </g>
       {spec && (
-        <g className="art-label">
-          <rect
-            className="art-label-bg"
-            x={-labelW / 2}
-            y={n.r + 5}
-            width={labelW}
-            height={showYears ? font * 2.6 : font * 1.6}
-            rx={font * 0.65}
-          />
+        <g className="art-label" transform={spec.dy ? `translate(0 ${spec.dy})` : undefined}>
+          {/* Подпись ступенькой ниже — тонкая черта к своему кружку */}
+          {spec.dy > 0 && <path d={`M 0 ${n.r + 5 - spec.dy} L 0 ${n.r + 5}`} className="art-label-tick" />}
+          <rect className="art-label-bg" x={-labelW / 2} y={n.r + 5} width={labelW} height={labelHeight(font, lines)} rx={font * 0.65} />
           <text className="art-name" y={n.r + 5 + font * 1.15} textAnchor="middle" fontSize={font}>
-            {label}
+            {spec.name}
           </text>
+          {spec.spouse && (
+            <text className="art-spouse-name" y={n.r + 5 + font * 2.1} textAnchor="middle" fontSize={font * 0.82}>
+              {spec.spouse}
+            </text>
+          )}
           {showYears && (
-            <text className="art-years" y={n.r + 5 + font * 2.15} textAnchor="middle" fontSize={font * 0.82}>
+            <text className="art-years" y={n.r + 5 + font * (spec.spouse ? 3.05 : 2.15)} textAnchor="middle" fontSize={font * 0.82}>
               {years}
             </text>
           )}

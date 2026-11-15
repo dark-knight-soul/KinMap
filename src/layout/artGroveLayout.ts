@@ -19,8 +19,8 @@ import type { Bounds } from './types';
 
 export const GROVE_R = 26;
 export const GROVE_FOCUS_R = 32;
-/** Между центрами партнёров в гнезде */
-const PAIR = 92;
+/** Между центрами партнёров в гнезде — чтобы подписи мужа и жены помещались рядом */
+const PAIR = 112;
 /** Между гнёздами в ярусе */
 const GAP = 56;
 /** Между ярусами */
