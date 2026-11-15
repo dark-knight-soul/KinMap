@@ -171,7 +171,9 @@ export function ArtTreeContent({
       <ellipse cx={0} cy={TRUNK_H + 14} rx={Math.max(260, trunk * 14)} ry={34} fill="url(#km-art-ground)" />
       <path className="art-trunk" d={trunkPath(trunk)} />
       {/* Родословное дерево: где чей род */}
-      {(layout.mode === 'ancestors' || layout.mode === 'full') && !simple && layout.nodes.length > 1 && (
+      {(layout.mode === 'ancestors' || layout.mode === 'full' || (layout.mode === 'clan' && !layout.rootId)) &&
+        !simple &&
+        layout.nodes.length > 1 && (
         <g className="art-sides" aria-hidden="true">
           <text x={-trunk * 1.6 - 30} y={TRUNK_H * 0.72} textAnchor="end">
             ← {t('tree.fatherSide')}

@@ -12,8 +12,11 @@ import type { Bounds } from './types';
 //   descendants — дерево потомков: родоначальник над стволом, дети — толстые ветви,
 //                 внуки — тоньше и т.д.
 //   full        — человек целиком: предки в кроне (как ancestors), потомки — в корнях под землёй.
-//   clan        — весь род: потомки самого старшего предка по отцу, а у жён и мужей,
-//                 пришедших из других семей, — их родители (маленькие кружки над супругом).
+//   clan        — весь род: от ствола две большие ветви — род отца (потомки самого старшего
+//                 предка по отцу) слева и род матери (потомки старшего предка по её отцу) справа.
+//                 У жён и мужей, пришедших из других семей, — их родители (маленькие кружки).
+//                 Мать стоит рядом с отцом в роду отца, а в роду матери — ссылкой (пунктир),
+//                 чтобы её дети не рисовались дважды.
 //
 // Люди — круглые «листья» с фото или инициалами. Крона — полукруг вверх: у каждой ветви
 // свой сектор, пропорциональный числу её «концевых» людей, поэтому ветви не перекрещиваются.
@@ -128,32 +131,55 @@ export function artTreeRoot(tree: TreeData, focus: PersonId, always = false): { 
   }
 }
 
-/** Дерево потомков (как раньше) */
-export function layoutArtTree(tree: TreeData, rootId: PersonId, maxGen: number, mode: ArtMode = 'descendants'): ArtTreeLayout {
-  if (!tree.people[rootId]) return emptyLayout(rootId, mode);
+/**
+ * «Строитель» дерева потомков с общим учётом: кто уже нарисован, какие союзы уже показаны
+ * (их дети не повторяются) и кто стоит на схеме супругом. Человек, у которого все союзы
+ * уже показаны там, где он супруг, становится ссылкой (пунктиром).
+ */
+function descBuilder(tree: TreeData, maxGen: number) {
   const seen = new Set<PersonId>();
+  const doneFamilies = new Set<string>();
+  const spouses = new Set<PersonId>();
   const birth = (id: PersonId) => approxYear(tree.people[id]?.birth?.date) ?? 99999;
-  let depth = 0;
+  const state = { depth: 0 };
 
   const build = (id: PersonId, gen: number): TNode => {
     const duplicate = seen.has(id);
     seen.add(id);
-    depth = Math.max(depth, gen);
+    state.depth = Math.max(state.depth, gen);
     const node: TNode = { id, children: [], weight: 1, duplicate, more: false };
     if (duplicate) return node;
-    const kids = [...new Set(unionsOf(tree, id).flatMap((f) => f.children.map((c) => c.id)))]
+    const unions = unionsOf(tree, id);
+    const fresh = unions.filter((f) => !doneFamilies.has(f.id));
+    // Все союзы уже показаны в другом месте, где человек стоит супругом, — здесь только ссылка
+    if (unions.length && !fresh.length && spouses.has(id)) {
+      node.duplicate = true;
+      return node;
+    }
+    const kids = [...new Set(fresh.flatMap((f) => f.children.map((c) => c.id)))]
       .filter((c) => tree.people[c])
       .sort((a, b) => birth(a) - birth(b));
     if (gen >= maxGen) {
       node.more = kids.length > 0;
       return node;
     }
+    for (const f of fresh) {
+      doneFamilies.add(f.id);
+      for (const p of f.partners) if (p !== id) spouses.add(p);
+    }
     node.children = kids.map((k) => build(k, gen + 1));
     if (node.children.length) node.weight = node.children.reduce((s, c) => s + c.weight, 0);
     return node;
   };
-  const root = build(rootId, 0);
-  return radial(tree, mode, root, depth, () => true);
+  return { build, seen, state };
+}
+
+/** Дерево потомков (как раньше) */
+export function layoutArtTree(tree: TreeData, rootId: PersonId, maxGen: number, mode: ArtMode = 'descendants'): ArtTreeLayout {
+  if (!tree.people[rootId]) return emptyLayout(rootId, mode);
+  const b = descBuilder(tree, maxGen);
+  const root = b.build(rootId, 0);
+  return radial(tree, mode, root, b.state.depth, () => true);
 }
 
 /** Сколько поколений показывать во «Всём роде» — по сути без ограничения */
@@ -164,8 +190,32 @@ const CLAN_DEPTH = 100;
  * у супругов из других семей — их родители.
  */
 export function layoutArtClan(tree: TreeData, focusId: PersonId): ArtTreeLayout {
-  const { root } = artTreeRoot(tree, focusId, true);
-  const layout = layoutArtTree(tree, root, CLAN_DEPTH, 'clan');
+  if (!tree.people[focusId]) return emptyLayout(focusId, 'clan');
+  const fatherRoot = artTreeRoot(tree, focusId, true).root;
+  const mother = parentsForTree(tree, focusId).mother;
+  // Род матери — только если известны её предки: иначе ветка состояла бы из одной ссылки на неё
+  const mr = mother ? artTreeRoot(tree, mother, true).root : undefined;
+  const motherRoot = mr && mr !== mother ? mr : undefined;
+
+  const b = descBuilder(tree, CLAN_DEPTH);
+  let layout: ArtTreeLayout;
+  if (!motherRoot || motherRoot === fatherRoot) {
+    layout = radial(tree, 'clan', b.build(fatherRoot, 0), b.state.depth, () => true);
+  } else {
+    // Две ветви от ствола: род отца слева, род матери справа. Сам ствол — «пустой» узел без человека
+    const fatherClan = b.build(fatherRoot, 1);
+    fatherClan.side = 'father';
+    const motherClan = b.build(motherRoot, 1);
+    motherClan.side = 'mother';
+    const top: TNode = {
+      id: '',
+      children: [fatherClan, motherClan],
+      weight: fatherClan.weight + motherClan.weight,
+      duplicate: false,
+      more: false,
+    };
+    layout = radial(tree, 'clan', top, b.state.depth, () => true, true);
+  }
   const inClan = new Set(layout.nodes.map((n) => n.personId));
   for (const n of layout.nodes) {
     const sp: Record<PersonId, PersonId[]> = {};
@@ -274,7 +324,8 @@ function radial(
   tree: TreeData,
   mode: ArtMode,
   root: TNode,
-  depth: number,
+  /** Глубина больше не нужна: радиусы ярусов считаются по тому, сколько людей на каждом */
+  _depth: number,
   withSpouses: (gen: number) => boolean,
   /** Родословное: крона пополам — слева род отца, справа род матери, сколько бы людей ни было известно */
   halves = false,
@@ -282,12 +333,53 @@ function radial(
   const fullSpan = Math.PI - 2 * PAD;
   // Мало людей — крона уже, ветви идут вверх, а не в стороны («крестом»)
   const span = halves ? fullSpan : Math.min(fullSpan, 0.5 + 0.33 * root.weight);
-  const half = (side: 'father' | 'mother') => root.children.filter((c) => c.side === side).reduce((s, c) => s + c.weight, 0);
-  // При делении пополам место считаем по более «тяжёлой» половине
-  const weight = halves ? 2 * Math.max(half('father'), half('mother'), 1) : root.weight;
-  // Шаг между ярусами: чтобы на внешнем ярусе «листьям» хватало места
-  const outerR = Math.max(MIN_STEP * Math.max(1, depth), (weight * MIN_ARC) / (span * WIDEN));
-  const step = depth ? outerR / depth : MIN_STEP;
+  const start = -Math.PI / 2 - span / 2;
+
+  // Сколько угла нужно ветке (при шаге между ярусами MIN_STEP): сам человек на своём ярусе
+  // занимает дугу MIN_ARC, а ветка целиком — не меньше суммы своих детей. Все эти углы
+  // обратно пропорциональны шагу, поэтому шаг подбирается одним делением.
+  const req = new Map<TNode, number>();
+  const calc = (n: TNode, gen: number): number => {
+    const own = gen === 0 ? 0 : (MIN_ARC * (n.ghost ? GHOST_WEIGHT : 1)) / (gen * MIN_STEP * WIDEN);
+    const kids = n.children.reduce((sum, c) => sum + calc(c, gen + 1), 0);
+    const r = Math.max(own, kids);
+    req.set(n, r);
+    return r;
+  };
+  calc(root, 0);
+  const sideReq = (side: 'father' | 'mother') =>
+    root.children.filter((c) => (c.side ?? 'father') === side).reduce((sum, c) => sum + req.get(c)!, 0);
+  // Во сколько раз не хватает места при шаге MIN_STEP — во столько и раздвигаем ярусы
+  const squeeze = halves
+    ? Math.max(sideReq('father'), sideReq('mother')) / (span / 2)
+    : req.get(root)! / span;
+  const step = MIN_STEP * Math.max(1, squeeze);
+
+  // Обход с секторами: детям — доли сектора по их нужному углу (лишнее место — поровну пропорционально)
+  const walk = (visit: (n: TNode, gen: number, a0: number, a1: number, parentKey?: string) => string | null) => {
+    const share = (kids: TNode[], gen: number, a0: number, a1: number, key: string) => {
+      const total = kids.reduce((sum, c) => sum + Math.max(req.get(c)!, 1e-9), 0);
+      let a = a0;
+      for (const c of kids) {
+        const w = ((a1 - a0) * Math.max(req.get(c)!, 1e-9)) / total;
+        go(c, gen + 1, a, a + w, key);
+        a += w;
+      }
+    };
+    const go = (n: TNode, gen: number, a0: number, a1: number, parentKey?: string) => {
+      const key = visit(n, gen, a0, a1, parentKey);
+      if (key === null || !n.children.length) return;
+      if (gen === 0 && halves) {
+        // Род отца — левая половина кроны, род матери — правая
+        const mid = (a0 + a1) / 2;
+        share(n.children.filter((c) => c.side !== 'mother'), 0, a0, mid, key);
+        share(n.children.filter((c) => c.side === 'mother'), 0, mid, a1, key);
+        return;
+      }
+      share(n.children, gen, a0, a1, key);
+    };
+    go(root, 0, start, start + span);
+  };
 
   const spousesOf = (id: PersonId) =>
     unionsOf(tree, id)
@@ -296,14 +388,14 @@ function radial(
 
   const nodes: ArtNode[] = [];
   const ghosts: ArtGhost[] = [];
-  const place = (n: TNode, gen: number, a0: number, a1: number, parentKey?: string) => {
+  const place = (n: TNode, gen: number, a0: number, a1: number, parentKey?: string): string | null => {
     const angle = gen === 0 ? -Math.PI / 2 : (a0 + a1) / 2;
     const r = gen * step;
     const x = Math.cos(angle) * r * WIDEN;
     const y = Math.sin(angle) * r;
     if (n.ghost) {
       ghosts.push({ key: `ghost-${n.ghost}@${parentKey}`, childId: '', kind: n.ghost, x, y, angle, parentKey: parentKey! });
-      return;
+      return null;
     }
     const key = `${n.id}@${nodes.length}`;
     nodes.push({
@@ -321,23 +413,9 @@ function radial(
       more: n.more || undefined,
       weight: n.weight,
     });
-    if (gen === 0 && halves) {
-      // Род отца — левая половина кроны, род матери — правая
-      const mid = (a0 + a1) / 2;
-      for (const c of n.children) {
-        if (c.side === 'mother') place(c, 1, mid, a1, key);
-        else place(c, 1, a0, mid, key);
-      }
-      return;
-    }
-    let a = a0;
-    for (const c of n.children) {
-      const w = ((a1 - a0) * c.weight) / n.weight;
-      place(c, gen + 1, a, a + w, key);
-      a += w;
-    }
+    return key;
   };
-  place(root, 0, -Math.PI / 2 - span / 2, -Math.PI / 2 + span / 2);
+  walk(place);
 
   // Чей родитель пустое место — по ключу родительского узла
   const byKey = new Map(nodes.map((n) => [n.key, n]));
