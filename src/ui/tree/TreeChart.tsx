@@ -1,13 +1,13 @@
 import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  artTreeRoot,
   layoutArtAncestors,
-  layoutArtClan,
   layoutArtFull,
   layoutArtTree,
   type ArtTreeLayout,
 } from '../../layout/artTreeLayout';
+import { layoutArtGrove } from '../../layout/artGroveLayout';
+import { countDescendants, descendantRoots } from '../../model/generations';
 import { layoutButterfly } from '../../layout/butterflyLayout';
 import { FAN_CENTER_R, layoutCircle, layoutFan, type FanSegment } from '../../layout/fanLayout';
 import { layoutAll, layoutAncestors, layoutDescendants, layoutFamily } from '../../layout/treeLayout';
@@ -19,8 +19,8 @@ import { avatarGeometry } from '../../file/images';
 import { computeIssues } from '../../model/checks';
 import { setHighlight, useUi } from '../../state/ui';
 import { lineKinds, surnameColors, surnameKey, type LineKind } from '../../layout/colors';
-import { lifespan, shownNames } from '../format';
-import { joinName } from '../../model/queries';
+import { lifespan, shownNames, useNameOf } from '../format';
+import { childrenOf, joinName } from '../../model/queries';
 import { genderSurname } from '../../model/names';
 import { urlFor } from '../media';
 import { useAddRelative, type RelativeKind } from '../useAddRelative';
@@ -46,12 +46,17 @@ export function TreeChart() {
   const layout = useMemo(
     () =>
       focus
-        ? computeLayout(tree, view.chart, focus, view.up, view.down, horizontal, { mode: view.artMode, up: view.artUp })
+        ? computeLayout(tree, view.chart, focus, view.up, view.down, horizontal, {
+            mode: view.artMode,
+            up: view.artUp,
+            descRoot: view.artDescRoot?.focus === focus ? view.artDescRoot.root : undefined,
+          })
         : null,
-    [tree, view.chart, focus, view.up, view.down, horizontal, view.artMode, view.artUp],
+    [tree, view.chart, focus, view.up, view.down, horizontal, view.artMode, view.artUp, view.artDescRoot],
   );
 
   const { add, dialog } = useAddRelative();
+  const nameOf = useNameOf();
   const tints = useTints(tree, focus, view.color);
   const highlight = useUi((s) => s.highlight);
 
@@ -98,6 +103,24 @@ export function TreeChart() {
         }
       </PanZoom>
       <ColorLegend tree={tree} mode={view.color} layout={layout} />
+      {layout.kind === 'art' && layout.art.mode === 'descendants' && layout.art.rootId !== focus && tree.people[layout.art.rootId] && (
+        <div className="path-chip art-caption" role="status">
+          <span>
+            {childrenOf(tree, focus).length
+              ? t('tree.descOf', { name: nameOf(tree.people[layout.art.rootId]), count: countDescendants(tree).get(layout.art.rootId) ?? 0 })
+              : t('tree.descNoChildren', {
+                  person: nameOf(tree.people[focus]),
+                  name: nameOf(tree.people[layout.art.rootId]),
+                  count: countDescendants(tree).get(layout.art.rootId) ?? 0,
+                })}
+          </span>
+          {!childrenOf(tree, focus).length && (
+            <button type="button" className="chip-btn" onClick={() => add(focus, 'child')}>
+              {t('tree.addChild')}
+            </button>
+          )}
+        </div>
+      )}
       {highlight && (
         <div className="path-chip" role="status">
           <span>{highlight.label}</span>
@@ -189,9 +212,14 @@ export type Computed =
   | { kind: 'art'; art: ArtTreeLayout; bounds: Bounds };
 
 /** Настройки «Дерева» для раскладки (печать — без пустых мест «+ отец / + мать») */
+/** «Потомки» от предка — без ограничения поколений */
+const ALL_GENERATIONS = 100;
+
 export interface ArtOptions {
   mode: 'ancestors' | 'descendants' | 'full' | 'clan';
   up: number;
+  /** «Потомки»: от кого растить (выбор в панели); нет — по умолчанию */
+  descRoot?: string;
   print?: boolean;
 }
 
@@ -215,16 +243,20 @@ export function computeLayout(
       return { kind: 'art', art: full, bounds: full.bounds };
     }
     if (art.mode === 'clan') {
-      const clan = layoutArtClan(tree, focus);
-      return { kind: 'art', art: clan, bounds: clan.bounds };
+      const grove = layoutArtGrove(tree, focus);
+      return { kind: 'art', art: grove, bounds: grove.bounds };
     }
     if (art.mode === 'ancestors') {
       const anc = layoutArtAncestors(tree, focus, art.up, !art.print);
       return { kind: 'art', art: anc, bounds: anc.bounds };
     }
-    // Нет детей — растим дерево от родоначальника, но так, чтобы сам человек был виден
-    const { root, depth } = artTreeRoot(tree, focus);
-    const desc = layoutArtTree(tree, root, Math.max(down, depth));
+    // «Потомки»: от самого человека, а если детей нет — от предка с самым большим родом
+    // (или от того, кого выбрали в панели). Глубина — чтобы сам человек точно был виден.
+    const roots = descendantRoots(tree, focus);
+    const chosen = roots.list.find((r) => r.id === art.descRoot) ?? roots.list.find((r) => r.id === roots.best);
+    // От предка — все его потомки целиком; от самого человека — сколько поколений выбрано
+    const fromAncestor = !!chosen && chosen.id !== focus;
+    const desc = layoutArtTree(tree, chosen?.id ?? focus, fromAncestor ? ALL_GENERATIONS : down);
     return { kind: 'art', art: desc, bounds: desc.bounds };
   }
   const layout =

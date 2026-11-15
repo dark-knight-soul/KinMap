@@ -302,6 +302,8 @@ export const uz: EnDictionary = {
     artFullHint: 'Inson toʻliq: ajdodlar shox-shabbada, zurriyot — ildizlarda',
     artClan: 'Butun urugʻ',
     artClanHint: 'Ota tomondan eng katta ajdoddan butun urugʻ, xotin va erlarning ota-onalari bilan',
+    descFrom: 'Kimning zurriyotini koʻrsatish',
+    descFromShort: 'kimdan',
     rotate: 'Burish: ajdodlar chapda, avlodlar o‘ngda',
     up: 'Yuqoriga avlodlar',
     down: 'pastga',
@@ -323,6 +325,9 @@ export const uz: EnDictionary = {
     back: '← Shajaraga',
     fatherSide: 'Ota tomoni',
     motherSide: 'Ona tomoni',
+    descOf: 'Zurriyoti koʻrsatilgan: {{name}} — {{count}}',
+    descNoChildren: '{{person}} farzandsiz — zurriyoti koʻrsatilgan: {{name}} ({{count}})',
+    addChild: '+ Farzand',
     center: 'Sxema markaziga',
   },
   photos: {

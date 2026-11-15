@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createBigTree, createDemoTree } from '../model/demo';
 import { addPerson, createTree, linkParent } from '../model/ops';
 import type { TreeData } from '../model/types';
-import { ROOTS_ANCHOR, ROOTS_TOP, artTreeRoot, layoutArtAncestors, layoutArtClan, layoutArtFull, layoutArtTree } from './artTreeLayout';
+import { ROOTS_ANCHOR, ROOTS_TOP, artTreeRoot, layoutArtAncestors, layoutArtFull, layoutArtTree } from './artTreeLayout';
 import { layoutButterfly } from './butterflyLayout';
 import { layoutCircle } from './fanLayout';
 import { layoutAncestors, layoutDescendants, layoutFamily } from './treeLayout';
@@ -167,7 +167,7 @@ describe('родословное «Дерево» (предки)', () => {
   });
 });
 
-describe('«Дерево»: полный и весь род', () => {
+describe('«Дерево»: полный', () => {
   it('полный: предки в кроне (выше ствола), потомки в корнях (ниже земли)', () => {
     const sergey = idOf(demo, 'Сергей');
     const t = layoutArtFull(demo, sergey, 7);
@@ -181,19 +181,6 @@ describe('«Дерево»: полный и весь род', () => {
     const grand = t.under.find((n) => n.personId === idOf(demo, 'Артём'))!;
     expect(grand.parentKey).toBe(child.key);
     expect(grand.y).toBeGreaterThan(child.y);
-  });
-
-  it('весь род: от старшего предка по отцу, выбранный человек на ветке', () => {
-    const t = layoutArtClan(demo, idOf(demo, 'София'));
-    expect(demo.people[t.rootId]!.names.given).toBe('Пётр');
-    expect(t.nodes.some((n) => n.personId === idOf(demo, 'София'))).toBe(true);
-  });
-
-  it('весь род: у жены из другой семьи — её родители', () => {
-    const t = layoutArtClan(demo, idOf(demo, 'Алексей'));
-    const ivan = t.nodes.find((n) => n.personId === idOf(demo, 'Иван'))!;
-    const elena = idOf(demo, 'Елена');
-    expect(ivan.spouseParents?.[elena]?.map((id) => demo.people[id]!.names.given).sort()).toEqual(['Григорий', 'Мария']);
   });
 });
 
@@ -226,25 +213,6 @@ describe('родословное «Дерево»: стороны не смеш�
   });
 });
 
-describe('«Весь род»: род отца и род матери', () => {
-  it('две ветви от ствола: род отца слева, род матери справа', () => {
-    const alexey = idOf(demo, 'Алексей');
-    const t = layoutArtClan(demo, alexey);
-    expect(t.rootId).toBe('');
-    const gen1 = t.nodes.filter((n) => n.gen === 1).map((n) => ({ name: demo.people[n.personId]!.names.given, x: n.x }));
-    expect(gen1.find((n) => n.name === 'Пётр')!.x).toBeLessThan(0);
-    expect(gen1.find((n) => n.name === 'Фёдор')!.x).toBeGreaterThan(0);
-  });
-
-  it('мать — пунктир в роду матери, её дети не повторяются', () => {
-    const t = layoutArtClan(demo, idOf(demo, 'Алексей'));
-    const solid = (name: string) => t.nodes.filter((n) => n.personId === idOf(demo, name) && !n.duplicate).length;
-    expect(solid('Алексей')).toBe(1);
-    const gulnara = t.nodes.filter((n) => n.personId === idOf(demo, 'Гульнара'));
-    expect(gulnara.every((n) => n.duplicate)).toBe(true);
-  });
-});
-
 describe('«Дерево»: люди не налезают друг на друга', () => {
   const expectApart = (nodes: { x: number; y: number; key: string }[]) => {
     for (let i = 0; i < nodes.length; i++) {
@@ -254,8 +222,7 @@ describe('«Дерево»: люди не налезают друг на дру�
       }
     }
   };
-  it('весь род, предки, потомки — на демо и на большом древе', () => {
-    expectApart(layoutArtClan(demo, idOf(demo, 'Алексей')).nodes);
+  it('предки и потомки — на демо и на большом древе', () => {
     expectApart(layoutArtAncestors(demo, idOf(demo, 'Артём'), 7).nodes);
     const big = createBigTree(4, 3);
     expectApart(layoutArtTree(big, big.rootPersonId!, 12).nodes);

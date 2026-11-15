@@ -28,6 +28,8 @@ export interface ViewState {
   artMode: ArtViewMode;
   /** «Дерево» предков: сколько поколений (по традиции — семь) */
   artUp: number;
+  /** «Потомки»: от кого растить — запоминается для конкретного человека в центре */
+  artDescRoot?: { focus: string; root: string };
 }
 
 export type ArtViewMode = 'ancestors' | 'descendants' | 'full' | 'clan';
@@ -64,6 +66,10 @@ function load(): ViewState {
       history: typeof raw.history === 'boolean' ? raw.history : DEFAULTS.history,
       artMode: ART_MODES.find((m) => m === raw.artMode) ?? DEFAULTS.artMode,
       artUp: clamp(raw.artUp, DEFAULTS.artUp),
+      artDescRoot:
+        raw.artDescRoot && typeof raw.artDescRoot.focus === 'string' && typeof raw.artDescRoot.root === 'string'
+          ? { focus: raw.artDescRoot.focus, root: raw.artDescRoot.root }
+          : undefined,
     };
   } catch {
     return DEFAULTS;

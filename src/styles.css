@@ -1705,10 +1705,29 @@ kbd {
 /* «Полный»: земля и корни с потомками */
 .art-earth { fill: color-mix(in srgb, var(--tree-bark) 9%, transparent); }
 .art-root-branch { fill: none; stroke: color-mix(in srgb, var(--tree-bark) 80%, var(--canvas-bg)); stroke-linecap: round; }
-/* «Весь род»: родители супруга из другой семьи */
-.art-inlaw { cursor: pointer; }
-.art-inlaw .art-disc { stroke-width: 1.5; }
-.art-inlaw.card-M .art-disc { stroke: var(--sex-m); }
-.art-inlaw.card-F .art-disc { stroke: var(--sex-f); }
-.art-inlaw:hover .art-disc { stroke: var(--accent); }
-.art-inlaw-line { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; fill: none; }
+
+/* «Весь род» — роща: ветви по цвету рода, путь к предкам человека в центре — ярче */
+.grove-link { fill: none; stroke-linecap: round; stroke: var(--tree-bark); }
+.grove-link.couple { stroke-linecap: butt; }
+.grove-link.dashed { stroke-dasharray: 8 6; }
+.grove-link.hue-0 { stroke: var(--tree-bark); }
+.grove-link.hue-1 { stroke: color-mix(in srgb, var(--tree-bark) 60%, #3f7fbf); }
+.grove-link.hue-2 { stroke: color-mix(in srgb, var(--tree-bark) 60%, #c0507a); }
+.grove-link.hue-3 { stroke: color-mix(in srgb, var(--tree-bark) 60%, #4e9a5b); }
+.grove-link.hue-4 { stroke: color-mix(in srgb, var(--tree-bark) 60%, #c08a2e); }
+.grove-link.hue-5 { stroke: color-mix(in srgb, var(--tree-bark) 60%, #7b5fc0); }
+.grove-link.hue-6 { stroke: color-mix(in srgb, var(--tree-bark) 60%, #2e9fa3); }
+.grove-link.hue-7 { stroke: color-mix(in srgb, var(--tree-bark) 60%, #b5583a); }
+.grove-link.on-path { stroke: var(--accent); }
+.art-ghost.dot .art-ghost-disc { stroke-width: 1.5; }
+.art-ghost-plus.small { font-size: 12px; }
+
+/* «Потомки»: пояснение над схемой и выбор «от кого» */
+.art-caption { gap: 10px; }
+.art-caption .chip-btn {
+  border: 1px solid rgb(255 255 255 / 0.5); background: transparent; color: inherit;
+  border-radius: 999px; padding: 2px 10px; font-size: 0.82rem; cursor: pointer; white-space: nowrap;
+}
+.art-caption .chip-btn:hover { background: rgb(255 255 255 / 0.18); }
+.desc-root { gap: 6px; }
+.desc-root select { max-width: 220px; }

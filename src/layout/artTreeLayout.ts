@@ -1,6 +1,7 @@
 import { approxYear } from '../model/dates';
 import { childrenOf, parentFamiliesOf, parentsOf, unionsOf } from '../model/queries';
 import type { PersonId, TreeData } from '../model/types';
+import type { GroveData } from './artGroveLayout';
 import type { Bounds } from './types';
 
 // Художественное «Дерево». Два режима:
@@ -12,11 +13,7 @@ import type { Bounds } from './types';
 //   descendants — дерево потомков: родоначальник над стволом, дети — толстые ветви,
 //                 внуки — тоньше и т.д.
 //   full        — человек целиком: предки в кроне (как ancestors), потомки — в корнях под землёй.
-//   clan        — весь род: от ствола две большие ветви — род отца (потомки самого старшего
-//                 предка по отцу) слева и род матери (потомки старшего предка по её отцу) справа.
-//                 У жён и мужей, пришедших из других семей, — их родители (маленькие кружки).
-//                 Мать стоит рядом с отцом в роду отца, а в роду матери — ссылкой (пунктир),
-//                 чтобы её дети не рисовались дважды.
+//   clan        — весь род: ВСЕ люди файла «рощей» по ярусам-поколениям (см. artGroveLayout.ts).
 //
 // Люди — круглые «листья» с фото или инициалами. Крона — полукруг вверх: у каждой ветви
 // свой сектор, пропорциональный числу её «концевых» людей, поэтому ветви не перекрещиваются.
@@ -62,8 +59,6 @@ export interface ArtNode {
   weight: number;
   /** Человек в корнях (потомок в режиме full): рисуется под землёй, без листвы */
   under?: boolean;
-  /** Родители супругов, пришедших из других семей (режим clan): супруг → [отец, мать] */
-  spouseParents?: Record<PersonId, PersonId[]>;
 }
 
 /** Пустое место для неизвестного отца или матери: по клику — добавить */
@@ -76,6 +71,8 @@ export interface ArtGhost {
   y: number;
   angle: number;
   parentKey: string;
+  /** Дальний предок — маленькая точка у человека, без места в кроне */
+  small?: boolean;
 }
 
 export interface ArtTreeLayout {
@@ -88,6 +85,8 @@ export interface ArtTreeLayout {
   bounds: Bounds;
   /** Радиус «облака» кроны вокруг каждого человека */
   crownR: number;
+  /** «Весь род»: ветви, пеньки и облака рощи (вместо одного ствола и полукруглой кроны) */
+  grove?: GroveData;
 }
 
 /** Толщина ветви к человеку — растёт с числом людей на ней */
@@ -103,6 +102,8 @@ interface TNode {
   more: boolean;
   /** Пустое место для неизвестного родителя */
   ghost?: 'father' | 'mother';
+  /** Пустое место у дальнего предка — точка без места в кроне */
+  ghostSmall?: boolean;
   /** Родословное дерево: чья это сторона у родителей человека в центре */
   side?: 'father' | 'mother';
 }
@@ -168,7 +169,7 @@ function descBuilder(tree: TreeData, maxGen: number) {
       for (const p of f.partners) if (p !== id) spouses.add(p);
     }
     node.children = kids.map((k) => build(k, gen + 1));
-    if (node.children.length) node.weight = node.children.reduce((s, c) => s + c.weight, 0);
+    if (node.children.length) node.weight = Math.max(1, node.children.reduce((s, c) => s + c.weight, 0));
     return node;
   };
   return { build, seen, state };
@@ -180,54 +181,6 @@ export function layoutArtTree(tree: TreeData, rootId: PersonId, maxGen: number, 
   const b = descBuilder(tree, maxGen);
   const root = b.build(rootId, 0);
   return radial(tree, mode, root, b.state.depth, () => true);
-}
-
-/** Сколько поколений показывать во «Всём роде» — по сути без ограничения */
-const CLAN_DEPTH = 100;
-
-/**
- * Весь род: потомки самого старшего предка по отцу (выбранный человек — на своей ветке),
- * у супругов из других семей — их родители.
- */
-export function layoutArtClan(tree: TreeData, focusId: PersonId): ArtTreeLayout {
-  if (!tree.people[focusId]) return emptyLayout(focusId, 'clan');
-  const fatherRoot = artTreeRoot(tree, focusId, true).root;
-  const mother = parentsForTree(tree, focusId).mother;
-  // Род матери — только если известны её предки: иначе ветка состояла бы из одной ссылки на неё
-  const mr = mother ? artTreeRoot(tree, mother, true).root : undefined;
-  const motherRoot = mr && mr !== mother ? mr : undefined;
-
-  const b = descBuilder(tree, CLAN_DEPTH);
-  let layout: ArtTreeLayout;
-  if (!motherRoot || motherRoot === fatherRoot) {
-    layout = radial(tree, 'clan', b.build(fatherRoot, 0), b.state.depth, () => true);
-  } else {
-    // Две ветви от ствола: род отца слева, род матери справа. Сам ствол — «пустой» узел без человека
-    const fatherClan = b.build(fatherRoot, 1);
-    fatherClan.side = 'father';
-    const motherClan = b.build(motherRoot, 1);
-    motherClan.side = 'mother';
-    const top: TNode = {
-      id: '',
-      children: [fatherClan, motherClan],
-      weight: fatherClan.weight + motherClan.weight,
-      duplicate: false,
-      more: false,
-    };
-    layout = radial(tree, 'clan', top, b.state.depth, () => true, true);
-  }
-  const inClan = new Set(layout.nodes.map((n) => n.personId));
-  for (const n of layout.nodes) {
-    const sp: Record<PersonId, PersonId[]> = {};
-    for (const s of n.spouses) {
-      if (inClan.has(s)) continue;
-      const parents = parentsForTree(tree, s);
-      const ids = [parents.father, parents.mother].filter((x): x is PersonId => !!x);
-      if (ids.length) sp[s] = ids;
-    }
-    if (Object.keys(sp).length) n.spouseParents = sp;
-  }
-  return layout;
 }
 
 /**
@@ -257,9 +210,13 @@ export function layoutArtFull(tree: TreeData, focusId: PersonId, gens: number, g
   return { ...anc, mode: 'full', under, bounds: b };
 }
 
+/** До какого поколения пустые места «+ Отец / + Мать» полноразмерные (дальше — точки) */
+const GHOST_DEPTH = 2;
+
 /**
  * Родословное дерево: предки человека, род отца слева, род матери справа.
  * ghosts — показывать пустые места для неизвестных родителей (на экране да, в печати нет).
+ * Полноразмерные пустые места — только у человека, родителей и дедов; у дальних — точки.
  */
 export function layoutArtAncestors(tree: TreeData, focusId: PersonId, maxGen: number, ghosts = true): ArtTreeLayout {
   if (!tree.people[focusId]) return emptyLayout(focusId, 'ancestors');
@@ -281,15 +238,17 @@ export function layoutArtAncestors(tree: TreeData, focusId: PersonId, maxGen: nu
       const n: TNode | null = pid
         ? build(pid, gen + 1)
         : ghosts
-          ? { id: '', children: [], weight: GHOST_WEIGHT, duplicate: false, more: false, ghost: kind }
+          ? gen + 1 <= GHOST_DEPTH
+            ? { id: '', children: [], weight: GHOST_WEIGHT, duplicate: false, more: false, ghost: kind }
+            : { id: '', children: [], weight: 0, duplicate: false, more: false, ghost: kind, ghostSmall: true }
           : null;
-      if (!pid && n) depth = Math.max(depth, gen + 1);
+      if (!pid && n && !n.ghostSmall) depth = Math.max(depth, gen + 1);
       if (n && gen === 0) n.side = kind;
       return n;
     };
     // Порядок важен: первый ребёнок узла уходит влево — туда идёт род отца
     node.children = [slot(father, 'father'), slot(mother, 'mother')].filter((x): x is TNode => !!x);
-    if (node.children.length) node.weight = node.children.reduce((s, c) => s + c.weight, 0);
+    if (node.children.length) node.weight = Math.max(1, node.children.reduce((s, c) => s + c.weight, 0));
     return node;
   };
   const root = build(focusId, 0);
@@ -340,7 +299,7 @@ function radial(
   // обратно пропорциональны шагу, поэтому шаг подбирается одним делением.
   const req = new Map<TNode, number>();
   const calc = (n: TNode, gen: number): number => {
-    const own = gen === 0 ? 0 : (MIN_ARC * (n.ghost ? GHOST_WEIGHT : 1)) / (gen * MIN_STEP * WIDEN);
+    const own = gen === 0 || n.ghostSmall ? 0 : (MIN_ARC * (n.ghost ? GHOST_WEIGHT : 1)) / (gen * MIN_STEP * WIDEN);
     const kids = n.children.reduce((sum, c) => sum + calc(c, gen + 1), 0);
     const r = Math.max(own, kids);
     req.set(n, r);
@@ -394,7 +353,7 @@ function radial(
     const x = Math.cos(angle) * r * WIDEN;
     const y = Math.sin(angle) * r;
     if (n.ghost) {
-      ghosts.push({ key: `ghost-${n.ghost}@${parentKey}`, childId: '', kind: n.ghost, x, y, angle, parentKey: parentKey! });
+      ghosts.push({ key: `ghost-${n.ghost}@${parentKey}`, childId: '', kind: n.ghost, x, y, angle, parentKey: parentKey!, small: n.ghostSmall || undefined });
       return null;
     }
     const key = `${n.id}@${nodes.length}`;

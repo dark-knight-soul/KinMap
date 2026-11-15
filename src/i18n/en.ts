@@ -306,6 +306,8 @@ export const en: EnDictionary = {
     artFullHint: 'The whole person: ancestors in the crown, descendants in the roots',
     artClan: 'Whole clan',
     artClanHint: 'The whole clan from the eldest paternal ancestor, with parents of wives and husbands',
+    descFrom: 'Whose descendants to show',
+    descFromShort: 'from',
     rotate: 'Rotate: ancestors left, descendants right',
     up: 'Generations up',
     down: 'down',
@@ -327,6 +329,9 @@ export const en: EnDictionary = {
     back: '← Back to tree',
     fatherSide: 'Father’s side',
     motherSide: 'Mother’s side',
+    descOf: 'Showing descendants of {{name}} — {{count}}',
+    descNoChildren: '{{person}} has no children — showing descendants of {{name}} ({{count}})',
+    addChild: '+ Child',
     center: 'Center chart',
   },
   photos: {

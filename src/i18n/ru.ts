@@ -298,6 +298,8 @@ export const ru = {
     artFullHint: 'Человек целиком: предки в кроне, потомки — в корнях',
     artClan: 'Весь род',
     artClanHint: 'Весь род от старшего предка по отцу, с родителями жён и мужей',
+    descFrom: 'От кого показать потомков',
+    descFromShort: 'от',
     rotate: 'Повернуть: предки слева, потомки справа',
     up: 'Поколений вверх',
     down: 'вниз',
@@ -319,6 +321,9 @@ export const ru = {
     back: '← К древу',
     fatherSide: 'Род отца',
     motherSide: 'Род матери',
+    descOf: 'Показаны потомки: {{name}} — {{count}}',
+    descNoChildren: '{{person}}: детей не записано — показаны потомки: {{name}} ({{count}})',
+    addChild: '+ Ребёнок',
     center: 'В центр схемы',
   },
   photos: {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createDemoTree } from './demo';
-import { knownGenerations } from './generations';
+import { descendantRoots, knownGenerations } from './generations';
 import { addPerson, createTree } from './ops';
 import type { TreeData } from './types';
 
@@ -28,5 +28,21 @@ describe('известные поколения', () => {
     const g = knownGenerations(demo, idOf(demo, 'Алексей'));
     expect(g.up).toBe(3);
     expect(g.down).toBe(1);
+  });
+});
+
+describe('«Потомки» — от кого', () => {
+  it('у человека с детьми — он сам', () => {
+    const sergey = idOf(demo, 'Сергей');
+    expect(descendantRoots(demo, sergey).best).toBe(sergey);
+  });
+
+  it('без детей — предок с самым большим родом, список — сам и все предки с потомками', () => {
+    const sofia = idOf(demo, 'София');
+    const r = descendantRoots(demo, sofia);
+    const best = r.list.find((x) => x.id === r.best)!;
+    expect(best.count).toBe(Math.max(...r.list.map((x) => x.count)));
+    expect(r.list.some((x) => x.id === idOf(demo, 'Алексей') && x.depth === 1)).toBe(true);
+    expect(r.list.some((x) => x.id === sofia)).toBe(false);
   });
 });

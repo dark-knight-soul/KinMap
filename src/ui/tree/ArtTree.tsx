@@ -10,6 +10,7 @@ import {
   type ArtNode,
   type ArtTreeLayout,
 } from '../../layout/artTreeLayout';
+import { GROVE_HUES, GROVE_STUMP_H, type GroveData } from '../../layout/artGroveLayout';
 import type { RelativeKind } from '../useAddRelative';
 import type { MediaStore } from '../../file/format';
 import { avatarGeometry } from '../../file/images';
@@ -24,9 +25,9 @@ import type { Viewport } from './PanZoom';
 // Художественное «Дерево»: ствол, изогнутые ветви, люди — круглые «листья».
 // Раскладка — в layout/artTreeLayout.ts, здесь только рисование.
 
-const SPOUSE_R = 17;
-/** Родители супруга из другой семьи (режим «Весь род») — совсем маленькие кружки */
-const IN_LAW_R = 12;
+const SPOUSE_R = 22;
+/** Радиусы кружков, для которых нужны маски обрезки фото */
+const CLIP_RADII = [38, 32, 28, 26, SPOUSE_R];
 const NO_MEDIA: MediaStore = {};
 /** Больше стольких людей — без декоративных листьев (ради скорости) */
 const LEAVES_LIMIT = 1500;
@@ -136,16 +137,63 @@ export function ArtTreeContent({
         return { x: left, w: right - left, h: bottom - TRUNK_H - 8 };
       })()
     : null;
+  const labels = useMemo(
+    () =>
+      placeLabels([...nodes, ...under], vp.scale, print, {
+        focusId,
+        selectedId,
+        founders: layout.grove?.founders,
+        chars: layout.grove ? 11 : 16,
+      }),
+    [nodes, under, vp.scale, print, focusId, selectedId, layout.grove],
+  );
   const photoUrl = (p: Person | undefined) => {
     const ph = p?.photos?.[0];
     const bytes = ph ? media[ph.id] : undefined;
     return ph && bytes ? urlFor(bytes, ph.mime) : undefined;
   };
 
+  const person = (n: ArtNode) => {
+    const p = tree.people[n.personId];
+    if (!p) return null;
+    return (
+      <ArtPerson
+        key={n.key}
+        n={n}
+        person={p}
+        photo={photoUrl(p)}
+        tint={tints?.get(p.id)}
+        selected={p.id === selectedId}
+        focus={!print && p.id === focusId && p.id !== layout.rootId}
+        path={pathIds ? (pathIds.has(p.id) ? 'in' : 'out') : undefined}
+        label={labels.get(n.key)}
+        moreAbove={!n.under && (layout.mode === 'ancestors' || layout.mode === 'full')}
+        spouses={simple ? [] : n.spouses.map((id) => ({ person: tree.people[id]!, photo: photoUrl(tree.people[id]) }))}
+      />
+    );
+  };
+
+  if (layout.grove) {
+    return (
+      <g className="art-tree">
+        <ClipDefs />
+        <Grove grove={layout.grove} vp={vp} dimmed={!!pathIds} />
+        {leaves && (
+          <g className="art-leaves" aria-hidden="true">
+            {nodes.map((n) => (
+              <Leaves key={n.key} n={n} />
+            ))}
+          </g>
+        )}
+        {nodes.map(person)}
+      </g>
+    );
+  }
+
   return (
     <g className="art-tree">
       <defs>
-        {[38, 28, SPOUSE_R].map((r) => (
+        {CLIP_RADII.map((r) => (
           <clipPath key={r} id={`km-art-${r}`}>
             <circle cx={r} cy={r} r={r} />
           </clipPath>
@@ -206,7 +254,12 @@ export function ArtTreeContent({
           {layout.ghosts.map((g) => {
             const parent = byKey.get(g.parentKey);
             if (!parent || (!visibleXY(g.x, g.y) && !visible(parent))) return null;
-            return <Ghost key={g.key} g={g} parent={parent} label={t(g.kind === 'father' ? 'relations.addFather' : 'relations.addMother')} onAdd={onQuickAdd} />;
+            const label = t(g.kind === 'father' ? 'relations.addFather' : 'relations.addMother');
+            return g.small ? (
+              <GhostDot key={g.key} g={g} parent={parent} label={label} onAdd={onQuickAdd} />
+            ) : (
+              <Ghost key={g.key} g={g} parent={parent} label={label} onAdd={onQuickAdd} />
+            );
           })}
         </g>
       )}
@@ -219,35 +272,118 @@ export function ArtTreeContent({
           })}
         </g>
       )}
-      {[...nodes, ...under].map((n) => {
-        const p = tree.people[n.personId];
-        if (!p) return null;
-        return (
-          <ArtPerson
-            key={n.key}
-            n={n}
-            person={p}
-            photo={photoUrl(p)}
-            tint={tints?.get(p.id)}
-            selected={p.id === selectedId}
-            focus={!print && p.id === focusId && p.id !== layout.rootId}
-            simple={simple}
-            path={pathIds ? (pathIds.has(p.id) ? 'in' : 'out') : undefined}
-            moreAbove={!n.under && (layout.mode === 'ancestors' || layout.mode === 'full')}
-            spouses={
-              simple
-                ? []
-                : n.spouses.map((id) => ({
-                    person: tree.people[id]!,
-                    photo: photoUrl(tree.people[id]),
-                    parents: (n.spouseParents?.[id] ?? []).map((pid) => tree.people[pid]!).filter(Boolean),
-                  }))
-            }
-          />
-        );
-      })}
+      {[...nodes, ...under].map(person)}
     </g>
   );
+}
+
+/** Маски обрезки фото для всех радиусов кружков */
+function ClipDefs() {
+  return (
+    <defs>
+      {CLIP_RADII.map((r) => (
+        <clipPath key={r} id={`km-art-${r}`}>
+          <circle cx={r} cy={r} r={r} />
+        </clipPath>
+      ))}
+      <radialGradient id="km-art-ground">
+        <stop offset="0" className="art-ground-in" />
+        <stop offset="1" className="art-ground-out" />
+      </radialGradient>
+    </defs>
+  );
+}
+
+/** «Весь род»: облака крон гнёзд, пеньки родоначальников, ветви по цвету рода */
+function Grove({ grove, vp, dimmed }: { grove: GroveData; vp: Viewport; dimmed: boolean }) {
+  const near = (x: number, y: number, pad: number) => x + pad >= vp.minX && x - pad <= vp.maxX && y + pad >= vp.minY && y - pad <= vp.maxY;
+  const links = [...grove.links].sort((a, b) => Number(!!a.onPath) - Number(!!b.onPath));
+  return (
+    <>
+      <g className="art-crown" aria-hidden="true">
+        {grove.blobs
+          .filter((b) => near(b.x, b.y, b.rx + 40))
+          .map((b) => (
+            <ellipse key={b.key} cx={b.x} cy={b.y} rx={b.rx} ry={b.ry} />
+          ))}
+      </g>
+      <g aria-hidden="true">
+        {grove.stumps
+          .filter((st) => near(st.x, st.y, 200))
+          .map((st) => (
+            <g key={st.key}>
+              <ellipse cx={st.x} cy={st.y + GROVE_STUMP_H} rx={90} ry={14} fill="url(#km-art-ground)" />
+              <path className="art-trunk" d={stumpPath(st.x, st.y)} />
+            </g>
+          ))}
+      </g>
+      <g className={dimmed ? 'art-branches dimmed' : 'art-branches'}>
+        {links.map((l) => (
+          <path
+            key={l.key}
+            d={l.d}
+            className={['grove-link', `hue-${l.hue % GROVE_HUES}`, l.kind, l.onPath && 'on-path', l.dashed && 'dashed'].filter(Boolean).join(' ')}
+            strokeWidth={l.onPath ? Math.max(5, l.width * 0.6 + 2) : l.width}
+          />
+        ))}
+      </g>
+    </>
+  );
+}
+
+/** Пенёк под родоначальником: расширяется книзу, с корешками */
+function stumpPath(x: number, top: number): string {
+  const h = GROVE_STUMP_H;
+  const w = 12;
+  return [
+    `M ${x - w} ${top}`,
+    `C ${x - w} ${top + h * 0.5}, ${x - w * 1.6} ${top + h * 0.8}, ${x - w * 2.6} ${top + h}`,
+    `L ${x + w * 2.6} ${top + h}`,
+    `C ${x + w * 1.6} ${top + h * 0.8}, ${x + w} ${top + h * 0.5}, ${x + w} ${top}`,
+    'Z',
+  ].join(' ');
+}
+
+interface LabelSpec {
+  /** Размер шрифта имени (в единицах схемы) */
+  font: number;
+  years: boolean;
+  /** До скольких знаков обрезать имя */
+  chars: number;
+}
+
+/**
+ * Какие подписи показать и каким шрифтом — по масштабу:
+ *   ≥ 0.55 — имя и годы;  0.3…0.55 — только имя, шрифт крупнее (чтобы на экране было ≥ 11px);
+ *   < 0.3 — только у главных (человек в центре, выбранный, родоначальники).
+ * Расставляем по важности и пропускаем подписи, которые налезли бы на уже поставленные.
+ */
+function placeLabels(
+  nodes: ArtNode[],
+  scale: number,
+  print: boolean,
+  opts: { focusId?: string; selectedId?: string; founders?: string[]; chars: number },
+): Map<string, LabelSpec> {
+  const out = new Map<string, LabelSpec>();
+  const founders = new Set(opts.founders ?? []);
+  const important = (n: ArtNode) =>
+    n.personId === opts.focusId ? 0 : n.personId === opts.selectedId ? 1 : founders.has(n.personId) || n.gen === 0 ? 2 : 3;
+  const level = print || scale >= 0.55 ? 'full' : scale >= 0.3 ? 'name' : 'key';
+  const font = level === 'full' ? 14 : level === 'name' ? Math.min(24, Math.max(12, 11 / scale)) : Math.min(60, 11 / scale);
+  const sorted = [...nodes].sort((a, b) => important(a) - important(b) || b.weight - a.weight);
+  const boxes: [number, number, number, number][] = [];
+  for (const n of sorted) {
+    if (level === 'key' && important(n) > 2) continue;
+    const years = level === 'full';
+    // Ширина и высота подложки — примерно по длине имени (как в ArtPerson)
+    const w = opts.chars * font * 0.6 + 18;
+    const h = years ? font * 2.6 : font * 1.6;
+    const box: [number, number, number, number] = [n.x - w / 2, n.y + n.r + 5, n.x + w / 2, n.y + n.r + 5 + h];
+    if (!print && boxes.some((b) => b[0] < box[2] && box[0] < b[2] && b[1] < box[3] && box[1] < b[3])) continue;
+    boxes.push(box);
+    out.set(n.key, { font, years, chars: opts.chars });
+  }
+  return out;
 }
 
 /** Пустое место для неизвестного отца или матери: пунктирная веточка и кружок «+» */
@@ -278,8 +414,36 @@ function Ghost({
   );
 }
 
+/** Неизвестный дальний предок — маленькая точка «+» у человека, без места в кроне */
+function GhostDot({
+  g,
+  parent,
+  label,
+  onAdd,
+}: {
+  g: ArtGhost;
+  parent: ArtNode;
+  label: string;
+  onAdd: (personId: string, kind: RelativeKind) => void;
+}) {
+  // Отец — левее, мать — правее, над кружком
+  const dx = (g.kind === 'father' ? -1 : 1) * (parent.r * 0.55);
+  const x = parent.x + dx;
+  const y = parent.y - parent.r - 10;
+  return (
+    <g className="art-ghost dot" role="button" aria-label={label} onClick={(e) => (e.stopPropagation(), onAdd(g.childId, g.kind))}>
+      <title>{label}</title>
+      <circle cx={x} cy={y} r={8} className="art-ghost-disc" />
+      <text x={x} y={y + 4} textAnchor="middle" className="art-ghost-plus small">
+        +
+      </text>
+    </g>
+  );
+}
+
 /** Листья вокруг человека (на концах ветвей — пышнее) и пара листиков на середине ветви */
 function Leaves({ n, parent }: { n: ArtNode; parent?: ArtNode }) {
+  // В «роще» ветви идут снизу, листья — сверху кружка
   const count = n.hasChildren ? 4 : 7;
   const out = [];
   if (parent) {
@@ -324,10 +488,10 @@ const ArtPerson = memo(function ArtPerson({
   tint,
   selected,
   focus,
-  simple,
   path,
   spouses,
   moreAbove,
+  label: spec,
 }: {
   n: ArtNode;
   person: Person;
@@ -335,19 +499,21 @@ const ArtPerson = memo(function ArtPerson({
   tint?: string;
   selected: boolean;
   focus: boolean;
-  simple: boolean;
   path?: 'in' | 'out';
-  /** parents — родители супруга из другой семьи (режим «Весь род») */
-  spouses: { person: Person; photo?: string; parents: Person[] }[];
+  spouses: { person: Person; photo?: string }[];
+  /** Подпись под кружком (нет — не показываем: мелкий масштаб или налезла бы на соседнюю) */
+  label?: LabelSpec;
   /** «Есть ещё» — предки (стрелка вверх) или потомки (вниз) */
   moreAbove: boolean;
 }) {
   const { t } = useTranslation();
   const years = lifespan(person);
   const name = givenSurname(person) || t('common.unnamed');
-  const label = cut(shownNames(person).given ?? t('common.unnamed'), 16);
+  const label = cut(shownNames(person).given ?? t('common.unnamed'), spec?.chars ?? 16);
+  const font = spec?.font ?? 14;
+  const showYears = !!spec?.years && !!years;
   // Ширина подложки подписи — примерно по длине текста
-  const labelW = Math.max(label.length * 8.4, (years ?? '').length * 6.4) + 18;
+  const labelW = Math.max(label.length * font * 0.6, showYears ? years.length * font * 0.46 : 0) + 18;
   const cls = [
     'art-person',
     `card-${person.sex}`,
@@ -379,35 +545,13 @@ const ArtPerson = memo(function ArtPerson({
             {...contextMenuHandlers(s.person.id)}
           >
             <title>{givenSurname(s.person)}</title>
-            {/* Родители супруга, пришедшего из другой семьи: два кружка над ним */}
-            {s.parents.map((pp, j) => {
-              // Чуть наружу (в сторону супруга), чтобы не ложиться на ветви к детям
-              const px = side * (SPOUSE_R + 2) + (j - (s.parents.length - 1) / 2) * (IN_LAW_R * 2 + 5);
-              const py = -SPOUSE_R - 22;
-              return (
-                <g
-                  key={pp.id}
-                  className={`art-inlaw card-${pp.sex}`}
-                  onClick={(e) => (e.stopPropagation(), select(pp.id))}
-                  onDoubleClick={(e) => (e.stopPropagation(), setFocus(pp.id))}
-                  {...contextMenuHandlers(pp.id)}
-                >
-                  <title>{`${givenSurname(pp)} — ${t(pp.sex === 'F' ? 'relations.mother' : 'relations.father')}: ${givenSurname(s.person)}`}</title>
-                  <path d={`M ${px} ${py + IN_LAW_R} L 0 ${-SPOUSE_R}`} className="art-inlaw-line" />
-                  <circle cx={px} cy={py} r={IN_LAW_R} className="art-disc" />
-                  <text className="art-initials" x={px} y={py + 3.5} textAnchor="middle" fontSize={9}>
-                    {initials(pp)}
-                  </text>
-                </g>
-              );
-            })}
             <circle r={SPOUSE_R} className="art-disc" />
             {s.photo ? (
               <svg x={-SPOUSE_R} y={-SPOUSE_R} width={SPOUSE_R * 2} height={SPOUSE_R * 2} overflow="hidden">
                 <image href={s.photo} {...avatarGeometry(s.person.photos![0]!, SPOUSE_R * 2)} clipPath={`url(#km-art-${SPOUSE_R})`} preserveAspectRatio="none" />
               </svg>
             ) : (
-              <text className="art-initials" y={4} textAnchor="middle" fontSize={11}>
+              <text className="art-initials" y={5} textAnchor="middle" fontSize={13}>
                 {initials(s.person)}
               </text>
             )}
@@ -435,14 +579,21 @@ const ArtPerson = memo(function ArtPerson({
           </text>
         )}
       </g>
-      {!simple && (
+      {spec && (
         <g className="art-label">
-          <rect className="art-label-bg" x={-labelW / 2} y={n.r + 5} width={labelW} height={years ? 36 : 22} rx={9} />
-          <text className="art-name" y={n.r + 21} textAnchor="middle">
+          <rect
+            className="art-label-bg"
+            x={-labelW / 2}
+            y={n.r + 5}
+            width={labelW}
+            height={showYears ? font * 2.6 : font * 1.6}
+            rx={font * 0.65}
+          />
+          <text className="art-name" y={n.r + 5 + font * 1.15} textAnchor="middle" fontSize={font}>
             {label}
           </text>
-          {years && (
-            <text className="art-years" y={n.r + 35} textAnchor="middle">
+          {showYears && (
+            <text className="art-years" y={n.r + 5 + font * 2.15} textAnchor="middle" fontSize={font * 0.82}>
               {years}
             </text>
           )}

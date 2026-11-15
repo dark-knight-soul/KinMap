@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { descendantRoots, type DescendantRoot } from '../../model/generations';
 import { matchesQuery, sortKey } from '../../model/queries';
 import { setFocus, useApp } from '../../state/store';
 import {
@@ -88,7 +89,10 @@ export function TreeToolbar() {
   const isArt = view.chart === 'tree';
   const artAnc = isArt && (view.artMode === 'ancestors' || view.artMode === 'full');
   const showUp = USES_UP.includes(view.chart);
-  const showDown = USES_DOWN.includes(view.chart) && (!isArt || view.artMode === 'descendants');
+  const desc = useDescRoot();
+  // «Потомки» от предка показываются целиком — выбор поколений не нужен
+  const showDown =
+    USES_DOWN.includes(view.chart) && (!isArt || (view.artMode === 'descendants' && (!desc.chosen || desc.chosen === desc.focus)));
   const rotatable = ROTATABLE.includes(view.chart);
 
   return (
@@ -144,6 +148,7 @@ export function TreeToolbar() {
           })}
         </div>
       )}
+      {isArt && view.artMode === 'descendants' && <DescRootPicker />}
       {artAnc && (
         <label className="gen-control" title={t('chart.up')}>
           <ChevronsUp size={16} strokeWidth={1.75} aria-hidden="true" />
@@ -192,6 +197,44 @@ export function TreeToolbar() {
       </label>
       <PersonSearch />
     </div>
+  );
+}
+
+/** «Потомки»: от кого растить дерево — сам человек или любой его предок (с числом потомков) */
+/** От кого сейчас растёт «Дерево потомков»: человек в центре, список кандидатов и выбранный */
+function useDescRoot() {
+  const tree = useApp((s) => s.session?.history.present);
+  const focusId = useApp((s) => s.session?.focusId);
+  const view = useView();
+  const focus = tree && focusId && tree.people[focusId] ? focusId : tree?.rootPersonId;
+  const roots = useMemo(
+    () => (tree && focus ? descendantRoots(tree, focus) : { list: [] as DescendantRoot[], best: undefined }),
+    [tree, focus],
+  );
+  const saved = view.artDescRoot?.focus === focus ? view.artDescRoot?.root : undefined;
+  const chosen = saved && roots.list.some((r) => r.id === saved) ? saved : roots.best;
+  return { focus, roots, chosen };
+}
+
+function DescRootPicker() {
+  const { t } = useTranslation();
+  const tree = useApp((s) => s.session!.history.present);
+  const nameOf = useNameOf();
+  const { focus, roots, chosen } = useDescRoot();
+  if (!focus || roots.list.length < 2) return null;
+  return (
+    <label className="gen-control desc-root" title={t('chart.descFrom')}>
+      <span className="muted small">{t('chart.descFromShort')}</span>
+      <select value={chosen} aria-label={t('chart.descFrom')} onChange={(e) => setView({ artDescRoot: { focus, root: e.target.value } })}>
+        {[...roots.list]
+          .sort((a, b) => a.depth - b.depth || b.count - a.count)
+          .map((r) => (
+            <option key={r.id} value={r.id}>
+              {nameOf(tree.people[r.id])} — {r.count}
+            </option>
+          ))}
+      </select>
+    </label>
   );
 }
 
